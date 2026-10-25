@@ -1,0 +1,16 @@
+.git
+.gitignore
+.next
+node_modules
+npm-debug.log*
+.DS_Store
+.env*
+.vercel
+.agents
+*.tsbuildinfo
+next-env.d.ts
+Dockerfile
+compose.yaml
+.dockerignore
+README.md
+skills-lock.json
