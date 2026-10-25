@@ -18,8 +18,8 @@ export const STRIP = {
   gap: 28,
   footerTop: 1680,
   footerHeight: 120,
-  /** Logo height inside the footer; width follows the asset's aspect ratio. */
-  logoHeight: 54,
+  /** Logo height inside the 120 px footer; width follows the asset's aspect ratio. */
+  logoHeight: 92,
 } as const;
 
 export const SLOT_YS = [36, 454, 872, 1290] as const;
@@ -119,7 +119,7 @@ export async function renderStrip(
   const style = TEMPLATES[template];
   const pixel = fontFamily("--font-dotgothic", "ui-monospace, monospace");
   const display = fontFamily("--font-barlow-condensed", "'Arial Narrow', sans-serif");
-  const dateFont = `400 ${Math.round(17 * s)}px ${pixel}`;
+  const dateFont = `400 ${Math.round(20 * s)}px ${pixel}`;
   const fallbackFont = `800 ${Math.round(40 * s)}px ${display}`;
   const dateText = stripDate(date);
   const [logo] = await Promise.all([
@@ -141,46 +141,55 @@ export async function renderStrip(
   const slotH = Math.round(STRIP.slotHeight * s);
   const x = Math.round(STRIP.marginX * s);
 
-  SLOT_YS.forEach((slotY, i) => {
-    const y = Math.round(slotY * s);
-    const photo = photos[i];
-    if (photo) {
-      // Filter each photo on its own canvas first, then composite, so the
-      // background and footer are never filtered.
-      const slot = makeCanvas(slotW, slotH);
+  // Filter each photo on its own canvas first, then composite, so the
+  // background and footer are never filtered. A source repeated across slots
+  // (the live preview) is filtered once.
+  const filtered = new Map<PhotoSource, HTMLCanvasElement>();
+  const slotFor = (photo: PhotoSource) => {
+    let slot = filtered.get(photo);
+    if (!slot) {
+      slot = makeCanvas(slotW, slotH);
       const sctx = get2d(slot);
       sctx.imageSmoothingQuality = "high";
       const crop = coverCrop(photo.width, photo.height, slotW / slotH);
       sctx.drawImage(photo.image, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, slotW, slotH);
       applyFilter(sctx, slotW, slotH, filter, photo.seed);
-      ctx.drawImage(slot, x, y);
-      releaseCanvas(slot);
+      filtered.set(photo, slot);
+    }
+    return slot;
+  };
+
+  SLOT_YS.forEach((slotY, i) => {
+    const y = Math.round(slotY * s);
+    const photo = photos[i];
+    if (photo) {
+      ctx.drawImage(slotFor(photo), x, y);
     } else {
       ctx.fillStyle = style.logo === "white" ? "rgba(255, 255, 255, 0.16)" : "rgba(0, 0, 0, 0.08)";
       ctx.fillRect(x, y, slotW, slotH);
     }
   });
+  filtered.forEach(releaseCanvas);
 
-  // Footer: real logo on the left, date directly beneath on the same left edge.
+  // Footer: the logo as large as the footer allows on the left, the date
+  // right-aligned on the same center line.
   const ink = INK[style.logo];
-  const footerTop = STRIP.footerTop * s;
+  const centerY = (STRIP.footerTop + STRIP.footerHeight / 2) * s;
   const logoH = STRIP.logoHeight * s;
-  const logoY = footerTop + 16 * s;
+  ctx.fillStyle = ink;
+  ctx.textBaseline = "middle";
   if (logo) {
     const logoW = logoH * (logo.naturalWidth / logo.naturalHeight);
-    ctx.drawImage(logo, x, logoY, logoW, logoH);
+    ctx.drawImage(logo, x, centerY - logoH / 2, logoW, logoH);
   } else {
-    ctx.fillStyle = ink;
     ctx.font = fallbackFont;
     ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(BRAND_NAME, x, logoY + 4 * s);
+    ctx.fillText(BRAND_NAME, x, centerY);
   }
-  ctx.fillStyle = ink;
   ctx.font = dateFont;
+  ctx.textAlign = "right";
+  ctx.fillText(dateText, canvas.width - x, centerY);
   ctx.textAlign = "left";
-  ctx.textBaseline = "top";
-  ctx.fillText(dateText, x + 2 * s, logoY + logoH + 6 * s);
   ctx.textBaseline = "alphabetic";
 
   return canvas;

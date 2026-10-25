@@ -8,7 +8,7 @@ import { KioskShell, STEPS_JA } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
-const TICKET = ["01 / STRIP", "02 / FILTER", "03 / SNAP", "04 / KEEP"];
+const TICKET = ["01 / STYLE", "02 / SNAP", "03 / KEEP"];
 
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const root = useEnterAnimation<HTMLDivElement>();

@@ -7,10 +7,10 @@ import { toCameraError } from "./camera";
 import type { BoothSettings, FilterId, PhotoSession, TemplateColor } from "./session";
 import {
   DEFAULT_SETTINGS,
+  MAX_RETAKES,
   TIMING,
   blankSession,
   createSession,
-  emptyPhotos,
   isComplete,
   nextEmptySlot,
 } from "./session";
@@ -20,17 +20,18 @@ import { BoothAudio } from "./audio";
 
 export type BoothPhase =
   | "welcome"
-  | "template-select"
-  | "filter-select"
+  /** Strip color + filter, with a live camera preview of the strip. */
+  | "style-select"
   | "camera-setup"
   | "camera-ready"
   | "countdown"
   | "capturing"
   | "pose-break"
   | "paused"
-  | "review"
+  /** "Keep": strip preview, one optional retake, QR, finish. */
   | "result"
-  | "finale"
+  /** Animated goodbye; returns to the welcome screen. */
+  | "thanks"
   | "error";
 
 export type CaptureMode = "sequence" | "retake";
@@ -144,23 +145,25 @@ export class BoothEngine {
 
   // ── navigation ────────────────────────────────────────────────────────────
 
+  /** Called from the Start tap, so the camera permission prompt follows a user gesture. */
   begin() {
     this.unlockAudio();
-    this.resetTo("template-select");
+    this.resetTo("style-select");
   }
 
-  /** Clears every photo, pose, timer and error, then returns to template selection. */
+  /** Clears every photo, pose, timer and error, then returns to the style screen. */
   newSession() {
-    this.resetTo("template-select");
+    this.resetTo("style-select");
   }
 
   goHome() {
     this.resetTo("welcome");
   }
 
-  private resetTo(phase: "welcome" | "template-select") {
+  private resetTo(phase: "welcome" | "style-select") {
     this.cancelRun();
-    this.stopCamera();
+    // The style screen previews the live camera, so only the welcome screen turns it off.
+    if (phase === "welcome") this.stopCamera();
     this.state.session.photos.forEach(releasePhoto);
     this.retakeOriginalId = null;
     this.patch({
@@ -174,16 +177,13 @@ export class BoothEngine {
       errorDetail: null,
       pausedBy: null,
     });
+    if (phase === "style-select") void this.startPreview();
   }
 
-  showTemplates() {
+  showStyle() {
     if (isCapturePhase(this.state.phase)) return;
-    this.patch({ phase: "template-select" });
-  }
-
-  showFilters() {
-    if (isCapturePhase(this.state.phase)) return;
-    this.patch({ phase: "filter-select" });
+    this.patch({ phase: "style-select" });
+    void this.startPreview();
   }
 
   showCamera() {
@@ -201,22 +201,14 @@ export class BoothEngine {
     this.patchSession({ filter });
   }
 
-  showResult() {
-    const { phase, session } = this.state;
-    if ((phase !== "review" && phase !== "finale") || !isComplete(session.photos)) return;
-    this.stopCamera();
-    this.patch({ phase: "result" });
-  }
-
-  showReview() {
+  /** Ends the session from the Keep screen: clears photos and shows the goodbye screen. */
+  finish() {
     if (this.state.phase !== "result") return;
-    this.patch({ phase: "review" });
-  }
-
-  /** The last screen of the customer flow (mock QR). */
-  showFinale() {
-    if (this.state.phase !== "result" || !isComplete(this.state.session.photos)) return;
-    this.patch({ phase: "finale" });
+    this.cancelRun();
+    this.stopCamera();
+    this.state.session.photos.forEach(releasePhoto);
+    this.retakeOriginalId = null;
+    this.patch({ phase: "thanks", session: blankSession(), mode: "sequence", retakeSlot: null, activeSlot: null });
   }
 
   // ── camera ────────────────────────────────────────────────────────────────
@@ -225,7 +217,19 @@ export class BoothEngine {
     this.camera.attachPreview?.(video);
   }
 
+  /** Starts (or restarts) the camera and moves to the camera screen. */
   enableCamera(): Promise<boolean> {
+    return this.requestCamera(true);
+  }
+
+  /** Starts the camera for the style screen's live preview without navigating. */
+  startPreview(): Promise<boolean> {
+    if (this.camera.isLive()) return Promise.resolve(true);
+    return this.requestCamera(false);
+  }
+
+  private requestCamera(navigate: boolean): Promise<boolean> {
+    if (navigate) this.patch({ phase: "camera-setup" });
     if (!this.starting) {
       this.starting = this.startCamera().finally(() => {
         this.starting = null;
@@ -235,7 +239,7 @@ export class BoothEngine {
   }
 
   private async startCamera(): Promise<boolean> {
-    this.patch({ phase: "camera-setup", cameraStatus: "starting", error: null, errorDetail: null });
+    this.patch({ cameraStatus: "starting", error: null, errorDetail: null });
     try {
       const stream = await this.camera.start(this.state.facing);
       this.patch({ stream, cameraStatus: "live" });
@@ -245,13 +249,9 @@ export class BoothEngine {
       return true;
     } catch (err) {
       const e = toCameraError(err);
-      this.patch({
-        cameraStatus: "off",
-        stream: null,
-        phase: "error",
-        error: e.kind,
-        errorDetail: e.message,
-      });
+      this.patch({ cameraStatus: "off", stream: null, error: e.kind, errorDetail: e.message });
+      // On the camera screen this becomes the error screen; the style screen just falls back to samples.
+      if (this.state.phase === "camera-setup") this.patch({ phase: "error" });
       return false;
     }
   }
@@ -327,15 +327,16 @@ export class BoothEngine {
     }
     const next = nextEmptySlot(session.photos);
     if (next === -1) {
-      this.finishToReview();
+      this.finishCapture();
       return;
     }
     this.beginShot(next);
   }
 
+  /** One photo may be redone from the Keep screen; the countdown starts right away. */
   retake(index: number) {
     const { phase, session } = this.state;
-    if (phase !== "review" && phase !== "result") return;
+    if (phase !== "result" || session.retakesUsed >= MAX_RETAKES) return;
     this.retakeOriginalId = session.photos[index]?.id ?? null;
     this.unlockAudio();
     this.patch({ mode: "retake", retakeSlot: index });
@@ -352,19 +353,8 @@ export class BoothEngine {
       retakeSlot: null,
       activeSlot: null,
       countdown: null,
-      phase: isComplete(this.state.session.photos) ? "review" : "camera-ready",
+      phase: isComplete(this.state.session.photos) ? "result" : "camera-ready",
     });
-  }
-
-  retakeAll() {
-    if (this.state.phase !== "review" && this.state.phase !== "result") return;
-    this.cancelRun();
-    this.state.session.photos.forEach(releasePhoto);
-    this.retakeOriginalId = null;
-    this.patchSession({ photos: emptyPhotos() });
-    this.patch({ mode: "sequence", retakeSlot: null, activeSlot: null });
-    if (this.camera.isLive()) this.patch({ phase: "camera-ready" });
-    else void this.enableCamera();
   }
 
   /** Stops the countdown/break without discarding shots. Returns true if it paused. */
@@ -385,7 +375,7 @@ export class BoothEngine {
     }
     this.unlockAudio();
     const target = this.resumeTarget();
-    if (target === null) this.finishToReview();
+    if (target === null) this.finishCapture();
     else this.beginShot(target);
   }
 
@@ -448,7 +438,8 @@ export class BoothEngine {
     const photos = [...this.state.session.photos];
     releasePhoto(photos[slot]);
     photos[slot] = makeCapturedPhoto(frame);
-    this.patchSession({ photos });
+    const retakesUsed = this.state.session.retakesUsed + (this.state.mode === "retake" ? 1 : 0);
+    this.patchSession({ photos, retakesUsed });
     // Flash + chime only for a frame that was actually saved.
     this.patch({ flashCount: this.state.flashCount + 1 });
     if (this.state.settings.sound) this.audio.shutter();
@@ -458,24 +449,27 @@ export class BoothEngine {
 
     const next = nextEmptySlot(photos);
     if (this.state.mode === "retake" || next === -1) {
-      this.runTimer(gen, TIMING.finishHoldMs, null, () => this.finishToReview());
+      this.runTimer(gen, TIMING.finishHoldMs, null, () => this.finishCapture());
       return;
     }
     this.patch({ phase: "pose-break", activeSlot: next });
     this.runTimer(gen, TIMING.poseBreakMs, null, () => this.runShot(next, gen));
   }
 
-  private finishToReview() {
+  /** After the last (or retaken) photo: go to the Keep screen. */
+  private finishCapture() {
     this.cancelRun();
     this.retakeOriginalId = null;
     this.patch({
-      phase: "review",
+      phase: "result",
       mode: "sequence",
       retakeSlot: null,
       activeSlot: null,
       countdown: null,
       pausedBy: null,
     });
+    // The camera stays warm only while a retake is still available.
+    if (this.state.session.retakesUsed >= MAX_RETAKES) this.stopCamera();
   }
 
   // ── timing ────────────────────────────────────────────────────────────────

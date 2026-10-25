@@ -165,8 +165,9 @@ export function Chip({
 /** Thin crop/registration marks in the four corners of a relative parent. */
 export function RegMarks({ className = "border-pp-blue-line" }: { className?: string }) {
   const base = `pointer-events-none absolute size-4 ${className}`;
+  // display:contents so the wrapper never takes a flex/grid slot; the marks are absolute.
   return (
-    <span aria-hidden>
+    <span aria-hidden className="contents">
       <span className={`${base} left-2 top-2 border-l-2 border-t-2`} />
       <span className={`${base} right-2 top-2 border-r-2 border-t-2`} />
       <span className={`${base} bottom-2 left-2 border-b-2 border-l-2`} />

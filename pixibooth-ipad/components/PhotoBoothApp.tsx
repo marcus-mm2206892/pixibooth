@@ -4,12 +4,10 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { BoothEngine, isCameraPhase } from "@/lib/boothEngine";
 import { BrowserCameraAdapter } from "@/lib/camera";
 import { WelcomeScreen } from "./WelcomeScreen";
-import { TemplatePicker } from "./TemplatePicker";
-import { FilterPicker } from "./FilterPicker";
+import { StyleScreen } from "./StyleScreen";
 import { CameraBooth } from "./CameraBooth";
-import { PhotoReview } from "./PhotoReview";
-import { ResultScreen } from "./ResultScreen";
-import { FinaleScreen } from "./FinaleScreen";
+import { KeepScreen } from "./KeepScreen";
+import { ThanksScreen } from "./ThanksScreen";
 
 export default function PhotoBoothApp() {
   const [engine] = useState(() => new BoothEngine(new BrowserCameraAdapter()));
@@ -32,47 +30,19 @@ export default function PhotoBoothApp() {
   }
 
   switch (phase) {
-    case "template-select":
-      return (
-        <TemplatePicker
-          session={session}
-          onSelect={(t) => engine.setTemplate(t)}
-          onBack={() => engine.goHome()}
-          onNext={() => engine.showFilters()}
-        />
-      );
-    case "filter-select":
-      return (
-        <FilterPicker
-          session={session}
-          onSelect={(f) => engine.setFilter(f)}
-          onBack={() => engine.showTemplates()}
-          onNext={() => engine.showCamera()}
-        />
-      );
-    case "review":
-      return (
-        <PhotoReview
-          session={session}
-          onRetake={(i) => engine.retake(i)}
-          onRetakeAll={() => engine.retakeAll()}
-          onContinue={() => engine.showResult()}
-        />
-      );
+    case "style-select":
+      return <StyleScreen state={state} engine={engine} />;
     case "result":
       return (
-        <ResultScreen
+        <KeepScreen
           session={session}
-          onTemplate={(t) => engine.setTemplate(t)}
-          onFilter={(f) => engine.setFilter(f)}
-          onBack={() => engine.showReview()}
-          onFinish={() => engine.showFinale()}
+          onRetake={(i) => engine.retake(i)}
+          onFinish={() => engine.finish()}
+          onNewSession={() => engine.newSession()}
         />
       );
-    case "finale":
-      return (
-        <FinaleScreen session={session} onBack={() => engine.showResult()} onNewSession={() => engine.newSession()} />
-      );
+    case "thanks":
+      return <ThanksScreen onDone={() => engine.goHome()} />;
     default:
       return <WelcomeScreen onStart={() => engine.begin()} />;
   }

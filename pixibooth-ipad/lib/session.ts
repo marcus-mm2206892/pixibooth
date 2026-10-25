@@ -12,7 +12,7 @@ export type TemplateColor =
   | "lavender"
   | "yellow";
 
-export type FilterId = "none" | "vintage" | "dreamy" | "flash" | "pastel" | "cool" | "mono";
+export type FilterId = "none" | "vintage" | "dreamy";
 
 export type CapturedPhoto = {
   id: string;
@@ -34,9 +34,14 @@ export type PhotoSession = {
   photos: Array<CapturedPhoto | null>;
   /** One pose prompt per slot, fixed for the session (retakes reuse their slot's prompt). */
   poses: string[];
+  /** Single-photo retakes used from the Keep screen (limited to MAX_RETAKES). */
+  retakesUsed: number;
 };
 
 export const SHOT_COUNT = 4;
+
+/** Customers may redo at most this many photos after seeing their strip. */
+export const MAX_RETAKES = 1;
 
 export const TIMING = {
   /** 5 → 4 → 3 → 2 → 1 → capture, for every shot including retakes. */
@@ -71,7 +76,7 @@ export function emptyPhotos(): Array<CapturedPhoto | null> {
 
 /** A blank placeholder session (no ID, no poses) used before Start. */
 export function blankSession(): PhotoSession {
-  return { id: "", createdAt: 0, template: "white", filter: "none", photos: emptyPhotos(), poses: [] };
+  return { id: "", createdAt: 0, template: "white", filter: "none", photos: emptyPhotos(), poses: [], retakesUsed: 0 };
 }
 
 /** A real customer session. Client-only (reads localStorage, random poses). */
@@ -83,6 +88,7 @@ export function createSession(): PhotoSession {
     filter: "none",
     photos: emptyPhotos(),
     poses: pickPoses(SHOT_COUNT),
+    retakesUsed: 0,
   };
 }
 

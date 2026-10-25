@@ -6,14 +6,14 @@ import { LOGO_SRC } from "@/lib/photostrip";
 import { PixelStar } from "./PixelStar";
 import { Jp } from "./ui";
 
-const STEPS = ["STRIP", "FILTER", "SNAP", "KEEP"] as const;
-/** 選択 selection · フィルター filter · 撮影 shooting · 完成 done */
-export const STEPS_JA = ["選択", "フィルター", "撮影", "完成"] as const;
+const STEPS = ["STYLE", "SNAP", "KEEP"] as const;
+/** スタイル style · 撮影 shooting · 完成 done */
+export const STEPS_JA = ["スタイル", "撮影", "完成"] as const;
 
-/** "01 STRIP › 02 FILTER › 03 SNAP › 04 KEEP", current step boxed. */
-export function StepTicker({ step }: { step: 1 | 2 | 3 | 4 }) {
+/** "01 STYLE › 02 SNAP › 03 KEEP", current step boxed. */
+export function StepTicker({ step }: { step: 1 | 2 | 3 }) {
   return (
-    <ol className="hidden items-center gap-1.5 font-pixel text-sm tracking-wider md:flex" aria-label={`Step ${step} of 4`}>
+    <ol className="hidden items-center gap-1.5 font-pixel text-sm tracking-wider md:flex" aria-label={`Step ${step} of ${STEPS.length}`}>
       {STEPS.map((name, i) => {
         const n = i + 1;
         const current = n === step;
@@ -47,7 +47,7 @@ export function KioskShell({
   rootRef,
   bodyClassName = "",
 }: {
-  step?: 1 | 2 | 3 | 4;
+  step?: 1 | 2 | 3;
   tone?: "white" | "navy";
   /** Decorative session number for the footer, e.g. "S003". */
   ticket?: string;

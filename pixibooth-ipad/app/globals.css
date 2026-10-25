@@ -36,6 +36,15 @@
   --font-label: var(--font-barlow-condensed);
 }
 
+/* Slightly larger type scale for reading at arm's length (DotGothic is small at 12px). */
+@theme {
+  --text-xs: 0.875rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.375rem;
+}
+
 html,
 body {
   height: 100%;
@@ -98,10 +107,12 @@ body {
   aspect-ratio: 532 / 390;
 }
 
-/* Filter cards: widest grid whose rows still fit the .fit-box height.
+/* Filter cards: widest row of --cols cards whose height still fits the .fit-box.
    Each card = slot-shaped sample + ~92px of label/padding (+28px horizontal). */
 .filter-grid {
   --gap: 16px;
+  --cols: 3;
+  --rows: 1;
   display: grid;
   gap: var(--gap);
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -110,13 +121,26 @@ body {
     var(--cols) * (((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows) - 92px) * 532 / 390 + 28px) +
       (var(--cols) - 1) * var(--gap)
   );
-  --cols: 3;
-  --rows: 3;
+}
+
+/* Style screen: live strip preview + color circles + filter cards. */
+.style-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 0.6fr);
+  grid-template-areas:
+    "preview colors"
+    "filters filters";
 }
 @media (orientation: landscape) {
-  .filter-grid {
-    --cols: 4;
-    --rows: 2;
+  .style-layout {
+    column-gap: 36px;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 2.2fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      "preview colors"
+      "preview filters";
   }
 }
 

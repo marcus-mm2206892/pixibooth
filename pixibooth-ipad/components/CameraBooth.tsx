@@ -14,50 +14,16 @@ import {
 } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import { isCapturePhase } from "@/lib/boothEngine";
-import type { CameraErrorKind } from "@/lib/camera";
+import { ERROR_COPY } from "@/lib/cameraErrors";
 import { FILTERS } from "@/lib/filters";
 import { FALLBACK_POSE } from "@/lib/poses";
-import { SHOT_COUNT, TIMING, nextEmptySlot, ticketNumber } from "@/lib/session";
+import { SHOT_COUNT, TIMING, nextEmptySlot } from "@/lib/session";
 import { popIn, shutterFlash } from "@/lib/motion";
 import { CaptureProgress } from "./CaptureProgress";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
 
-const ERROR_COPY: Record<CameraErrorKind, { title: string; body: string }> = {
-  insecure: {
-    title: "The camera needs a secure (HTTPS) page",
-    body: "Browsers only allow the camera on https:// pages or on http://localhost. If you opened this from another device using the Mac's IP address, use the HTTPS link instead (see the README).",
-  },
-  unsupported: {
-    title: "This browser can't use the camera",
-    body: "Open the booth in Safari on iPad, or in Safari or Chrome on a Mac.",
-  },
-  denied: {
-    title: "Camera access is turned off",
-    body: "iPad: tap “aA” in the address bar › Website Settings › Camera › Allow (or Settings › Apps › Safari › Camera). Mac Safari: Safari › Settings for This Website › Camera › Allow. Chrome: click the camera icon in the address bar. Then tap Try Again.",
-  },
-  "not-found": {
-    title: "No camera found",
-    body: "Connect or enable a camera on this device, then tap Try Again.",
-  },
-  "in-use": {
-    title: "The camera is busy",
-    body: "Another app or tab may be using it (FaceTime, Zoom, Photo Booth). Close it, then tap Try Again.",
-  },
-  ended: {
-    title: "The camera disconnected",
-    body: "Any photos already taken are safe. Reconnect the camera to keep going.",
-  },
-  "capture-failed": {
-    title: "That photo didn't save",
-    body: "Your other photos are safe. Tap Try Again to retake it.",
-  },
-  unknown: {
-    title: "Something went wrong with the camera",
-    body: "Tap Try Again. If it keeps happening, reload the page.",
-  },
-};
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -115,13 +81,13 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
       return;
     }
     if (canGoBack) {
-      engine.showFilters();
+      engine.showStyle();
       return;
     }
     engine.pause("user");
     setConfirmCancel(true);
   };
-  const backLabel = isRetake ? "Back to photos" : canGoBack ? "Back" : "Cancel session";
+  const backLabel = isRetake ? "Back to strip" : canGoBack ? "Back" : "Cancel session";
 
   // Slot whose pose is shown: the one counting down, or the next during a break.
   const poseSlot = capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos);
@@ -167,10 +133,12 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const errorCopy = state.error ? ERROR_COPY[state.error] : ERROR_COPY.unknown;
 
   return (
-    <KioskShell step={3} tone="navy" ticket={ticketNumber(session)}>
-      {/* Toolbar: back on the left, idle-only camera controls on the right. */}
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <Button variant="ghost-inverse" size="md" onClick={requestCancel}>
+    <KioskShell step={2} tone="navy" bodyClassName="pt-3!">
+      {/* Landscape: preview fills the left; toolbar + status column on the right.
+          Portrait: toolbar, preview, then status stacked. */}
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 landscape:grid-cols-[minmax(0,1fr)_min(28%,310px)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 landscape:col-start-2 landscape:row-start-1">
+        <Button variant="ghost-inverse" size="md" onClick={requestCancel} faceClassName="px-2!">
           <ArrowLeft className="size-5" aria-hidden />
           {backLabel}
         </Button>
@@ -180,10 +148,11 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               variant={settings.sound ? "inverse" : "outline-inverse"}
               size="sm"
               aria-pressed={settings.sound}
+              aria-label={settings.sound ? "Sound on" : "Sound off"}
               onClick={() => engine.updateSettings({ sound: !settings.sound })}
             >
               {settings.sound ? <Volume2 className="size-5" aria-hidden /> : <VolumeX className="size-5" aria-hidden />}
-              {settings.sound ? "Sound on" : "Sound off"}
+              {settings.sound ? "On" : "Off"}
             </Button>
             <Button
               variant={mirror ? "inverse" : "outline-inverse"}
@@ -195,44 +164,17 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               Mirror
             </Button>
             {state.cameraCount > 1 && (
-              <Button variant="outline-inverse" size="sm" onClick={() => engine.flipCamera()}>
+              <Button variant="outline-inverse" size="sm" aria-label="Switch camera" onClick={() => engine.flipCamera()}>
                 <Repeat className="size-5" aria-hidden />
-                Switch camera
+                Switch
               </Button>
             )}
           </div>
         )}
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 pt-3 landscape:flex-row landscape:gap-7">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-          {/* Pose tip lives above the viewport so it never covers faces. */}
-          <div className="px-shadow shrink-0">
-            <PixelFrame edge="bg-pp-blue" border={3} innerClassName="flex min-h-16 items-center gap-4 px-3 py-2">
-              <span className="shrink-0 bg-pp-blue px-2 py-1 font-pixel text-sm tracking-widest text-white">
-                {phase === "pose-break" ? "NEXT POSE ★" : "POSE TIP ★"}
-              </span>
-              <p
-                key={pose}
-                className="min-w-0 flex-1 font-pixel text-[clamp(1.4rem,3.2vmin,2.3rem)] uppercase leading-tight text-pp-navy"
-                aria-live="polite"
-              >
-                {idle && !isRetake ? "Get ready to pose!" : pose}
-              </p>
-              {phase === "pose-break" && (
-                <span className="h-2 w-24 shrink-0 overflow-hidden bg-pp-blue-light">
-                  <span
-                    key={activeSlot}
-                    className="animate-drain block h-full bg-pp-blue"
-                    style={{ animationDuration: `${TIMING.poseBreakMs}ms` }}
-                  />
-                </span>
-              )}
-            </PixelFrame>
-          </div>
-
           {/* Live preview: same 532:390 aspect + center crop as the saved photo. */}
-          <div className="fit-box flex flex-1 items-center justify-center">
+          <div className="fit-box flex items-center justify-center landscape:col-start-1 landscape:row-span-2 landscape:row-start-1">
             <div className="fit-slot px-shadow">
             <PixelFrame
               edge="bg-white"
@@ -272,6 +214,33 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
 
               {videoReady && phase !== "error" && <FramingGuide />}
 
+              {/* Pose tip over the bottom of the live view, where the group is looking.
+                  Semi-transparent so faces stay visible; it is never part of the saved photo. */}
+              {videoReady && (capturing || phase === "camera-ready") && (
+                <div className="pointer-events-none absolute inset-x-[5%] bottom-[5%] flex justify-center" aria-live="polite">
+                  <div className="px-corners flex max-w-full items-center gap-3 bg-pp-navy/55 px-4 py-2.5">
+                    <span className="shrink-0 bg-pp-blue/85 px-2 py-0.5 font-pixel text-sm tracking-widest text-white">
+                      {phase === "pose-break" ? "NEXT POSE ★" : "POSE TIP ★"}
+                    </span>
+                    <p
+                      key={pose}
+                      className="min-w-0 font-pixel text-[clamp(1.5rem,3.8vmin,2.8rem)] uppercase leading-tight text-white/90 drop-shadow-[0_2px_0_rgba(10,45,105,0.6)]"
+                    >
+                      {idle && !isRetake ? "Get ready to pose!" : pose}
+                    </p>
+                    {phase === "pose-break" && (
+                      <span className="h-2 w-20 shrink-0 overflow-hidden bg-white/25">
+                        <span
+                          key={activeSlot}
+                          className="animate-drain block h-full bg-white/90"
+                          style={{ animationDuration: `${TIMING.poseBreakMs}ms` }}
+                        />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Small corner countdown for people watching themselves; the big one is beside the frame. */}
               {phase === "countdown" && countdown !== null && (
                 <span
@@ -284,7 +253,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 </span>
               )}
 
-              <span ref={starRef} className="pointer-events-none absolute bottom-1.5 right-1.5" aria-hidden>
+              <span ref={starRef} className="pointer-events-none absolute left-1.5 top-1.5" aria-hidden>
                 <PixelStar variant="duo" size={24} color="#FFFFFF" accent="var(--pp-blue)" />
               </span>
 
@@ -349,10 +318,9 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             </PixelFrame>
             </div>
           </div>
-        </div>
 
         {/* Status, the big countdown, progress and the one big button. */}
-        <aside className="grid shrink-0 grid-cols-2 items-center gap-x-6 gap-y-4 landscape:flex landscape:w-[min(34%,380px)] landscape:flex-col landscape:items-stretch landscape:justify-center">
+        <aside className="grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-4 landscape:col-start-2 landscape:row-start-2 landscape:flex landscape:flex-col landscape:items-stretch landscape:justify-center">
           <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <PixelTag inverse>
@@ -415,7 +383,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               <button
                 type="button"
                 className="min-h-11 px-2 underline decoration-2 underline-offset-4"
-                onClick={() => engine.showFilters()}
+                onClick={() => engine.showStyle()}
               >
                 CHANGE
               </button>

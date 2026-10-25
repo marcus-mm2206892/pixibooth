@@ -26,13 +26,13 @@ export type FilterInfo = {
 export const FILTERS: Record<FilterId, FilterInfo> = {
   none: {
     id: "none",
-    label: "Original",
-    description: "True color",
+    label: "Auto",
+    description: "Original color",
     live: { css: "none" },
   },
   vintage: {
     id: "vintage",
-    label: "Vintage Film",
+    label: "Vintage",
     description: "Warm B&W, vignette",
     live: {
       css: "grayscale(1) sepia(0.22) contrast(1.18) brightness(0.96)",
@@ -41,7 +41,7 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   },
   dreamy: {
     id: "dreamy",
-    label: "Dreamy Glow",
+    label: "Dreamy",
     description: "Soft glowing light",
     live: {
       css: "brightness(1.05) contrast(0.92) saturate(0.96)",
@@ -49,36 +49,9 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
       glow: true,
     },
   },
-  flash: {
-    id: "flash",
-    label: "Disposable Flash",
-    description: "Punchy & warm",
-    live: {
-      css: "contrast(1.16) saturate(1.06) sepia(0.06) brightness(1.03)",
-      overlay: "radial-gradient(ellipse at center, rgba(20,12,4,0) 45%, rgba(20,12,4,0.38) 100%)",
-    },
-  },
-  pastel: {
-    id: "pastel",
-    label: "Soft Pastel",
-    description: "Light & delicate",
-    live: { css: "contrast(0.84) brightness(1.1) saturate(0.82)" },
-  },
-  cool: {
-    id: "cool",
-    label: "Cool Film",
-    description: "Cool blue shadows",
-    live: { css: "saturate(0.9) contrast(1.02)", overlay: "rgba(40, 100, 190, 0.35)", overlayBlend: "soft-light" },
-  },
-  mono: {
-    id: "mono",
-    label: "Monochrome ID",
-    description: "Crisp B&W",
-    live: { css: "grayscale(1) contrast(1.14)" },
-  },
 };
 
-export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamy", "flash", "pastel", "cool", "mono"];
+export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamy"];
 
 type Rgb = [number, number, number];
 
@@ -96,28 +69,8 @@ type Grade = {
   grain?: number;
 };
 
-const GRADES: Record<Exclude<FilterId, "none" | "vintage">, Grade> = {
-  dreamy: { saturation: 0.95, contrast: 0.9, black: 14, white: 255, highlightTint: [8, 3, 10] },
-  flash: { saturation: 1.06, contrast: 1.16, black: 4, white: 255, highlightTint: [10, 5, -6], grain: 8 },
-  pastel: {
-    saturation: 0.82,
-    contrast: 0.84,
-    black: 36,
-    white: 250,
-    shadowTint: [6, 2, 10],
-    highlightTint: [5, 0, 7],
-  },
-  cool: {
-    saturation: 0.9,
-    contrast: 1.02,
-    black: 12,
-    white: 252,
-    shadowTint: [-8, 6, 20],
-    highlightTint: [0, 2, 4],
-    grain: 5,
-  },
-  mono: { saturation: 0, contrast: 1.14, black: 8, white: 250, mono: true, grain: 4 },
-};
+/** Base grade under the Dreamy bloom: lifted blacks, softer contrast, pastel highlights. */
+const DREAMY_GRADE: Grade = { saturation: 0.95, contrast: 0.9, black: 14, white: 255, highlightTint: [8, 3, 10] };
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
@@ -133,7 +86,7 @@ export function applyFilter(
   if (filter === "dreamy") {
     // Bloom is computed from the ungraded image so it follows real highlights.
     const bloom = brightPass(ctx.canvas, width, height);
-    grade(ctx, width, height, GRADES.dreamy, seed);
+    grade(ctx, width, height, DREAMY_GRADE, seed);
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     ctx.globalAlpha = 0.6;
@@ -143,13 +96,8 @@ export function applyFilter(
     vignette(ctx, width, height, "255, 240, 248", 0.22, 0.55);
     return;
   }
-  if (filter === "vintage") {
-    vintageDuotone(ctx, width, height);
-    vignette(ctx, width, height, "20, 16, 12", 0.42, 0.42);
-    return;
-  }
-  grade(ctx, width, height, GRADES[filter], seed);
-  if (filter === "flash") vignette(ctx, width, height, "20, 12, 4", 0.36, 0.42);
+  vintageDuotone(ctx, width, height);
+  vignette(ctx, width, height, "20, 16, 12", 0.42, 0.42);
 }
 
 function grade(ctx: CanvasRenderingContext2D, w: number, h: number, g: Grade, seed: number) {

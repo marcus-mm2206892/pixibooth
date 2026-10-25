@@ -1,6 +1,6 @@
 # pixipocket — iPad photo booth (Phase 1 prototype)
 
-A browser-only photo booth with a cobalt-and-white, pixel-art "Japanese ID-photo kiosk" look. Flow: **welcome → strip color (8) → filter (7) → camera → four 5-second shots with pose tips and countdown sounds → review/retake → strip → mock-QR finish screen**. The strip is a real 600×1800 px (2×6 in at 300 ppi) PNG with the pixipocket logo and date in its footer; individual photos download as JPEGs. Nothing is uploaded and the QR is a non-functional illustration. Photos live in memory for the current session only.
+A browser-only photo booth with a cobalt-and-white, pixel-art "Japanese ID-photo kiosk" look. Flow: **welcome → style (8 strip colors + 3 filters, previewed live on the customers themselves) → camera → four 5-second shots with pose tips and countdown sounds → Keep screen (strip + one optional retake + mock QR) → animated thank-you → back to welcome**. The strip is a real 600×1800 px (2×6 in at 300 ppi) PNG with the pixipocket logo and date in its footer. Nothing is uploaded and the QR is a non-functional illustration. Photos live in memory for the current session only.
 
 ## Run on a Mac
 
@@ -45,7 +45,7 @@ Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided
 | `lib/boothEngine.ts` | Finite state machine (template → filter → camera → countdown/capture/pose-break → review → result), rAF/`performance.now` timers, cancellation tokens, pause/resume, wake lock, shutter sound. Lives outside React. |
 | `lib/camera.ts` | `CameraAdapter` interface + `BrowserCameraAdapter` (getUserMedia, center-cover-cropped and optionally mirrored still capture, error mapping). Swap this for a future PC/DSLR adapter. |
 | `lib/photostrip.ts` | 600×1800 layout, the 8 strip colors (with black/white logo choice), and `renderStrip()` / `renderStripPng()` used by thumbnails, preview and export. Footer = real logo PNG bottom-left, date (`DD.MM.YYYY`) directly below. |
-| `lib/filters.ts` | Seven filters (Original, Vintage Film, Dreamy Glow, Disposable Flash, Soft Pastel, Cool Film, Monochrome ID) as pure canvas pixel operations, so iPad Safari exports match the preview; CSS approximations for the live camera only. |
+| `lib/filters.ts` | Three filters (Auto = original, Vintage = the Canva warm-B&W recipe, Dreamy = highlight bloom) as pure canvas pixel operations, so iPad Safari exports match the preview; CSS approximations for the live camera only. |
 | `lib/poses.ts` | Pose-tip catalog; four distinct prompts per session (cute, cheeky, stylish, freestyle). |
 | `lib/audio.ts` | Web Audio ticks and shutter chime, unlocked on the Start/Take tap for iOS. |
 | `lib/sampleScene.ts` | Illustrated sample photos used in strip/filter previews before any real photo exists. |
@@ -53,7 +53,7 @@ Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided
 | `lib/session.ts` | Session types, per-day session IDs, timing defaults, filenames, the future `SessionSink` boundary. |
 | `lib/downloads.ts` | Blob downloads and the iPad share sheet ("Save Image" → Photos). |
 | `lib/motion.ts` | anime.js transitions (respects reduced motion). |
-| `components/*` | Screens (Welcome, TemplatePicker, FilterPicker, CameraBooth, PhotoReview, ResultScreen, FinaleScreen) and brand primitives (`KioskShell`, `PixelStar`, pixel `Button`/`PixelFrame`/`Chip` in `ui.tsx`, `MockQr`, `StarCelebration`). |
+| `components/*` | Screens (Welcome, StyleScreen — strip color + filter with a live camera strip preview, CameraBooth, KeepScreen — strip, 1 retake, QR, ThanksScreen — anime.js goodbye) and brand primitives (`KioskShell`, `PixelStar`, pixel `Button`/`PixelFrame`/`Chip` in `ui.tsx`, `MockQr`, `StarCelebration`). |
 | `public/brand/pixipocket-logo-{black,white}.png` | Your logo SVGs from `assets/logos/`, rasterized to transparent PNGs (canvas export can't reliably draw those image-embedding SVGs on iPad Safari). |
 | `app/globals.css` | Cobalt/navy/white design tokens, pixel stepped-corner and button classes. Fonts: DotGothic16 for everything (incl. Japanese), Barlow Condensed only for small section labels. Icons: pixelarticons (MIT). |
 
