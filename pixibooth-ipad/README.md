@@ -55,6 +55,6 @@ Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided
 | `lib/motion.ts` | anime.js transitions (respects reduced motion). |
 | `components/*` | Screens (Welcome, TemplatePicker, FilterPicker, CameraBooth, PhotoReview, ResultScreen, FinaleScreen) and brand primitives (`KioskShell`, `PixelStar`, pixel `Button`/`PixelFrame`/`Chip` in `ui.tsx`, `MockQr`, `StarCelebration`). |
 | `public/brand/pixipocket-logo-{black,white}.png` | Your logo SVGs from `assets/logos/`, rasterized to transparent PNGs (canvas export can't reliably draw those image-embedding SVGs on iPad Safari). |
-| `app/globals.css` | Cobalt/white design tokens, pixel stepped-corner and button classes. Fonts: Barlow Condensed (display), DotGothic16 (pixel labels), Geist (body). Icons: pixelarticons (MIT). |
+| `app/globals.css` | Cobalt/navy/white design tokens, pixel stepped-corner and button classes. Fonts: DotGothic16 for everything (incl. Japanese), Barlow Condensed only for small section labels. Icons: pixelarticons (MIT). |
 
 Out of scope for this phase: DSLR tethering, printing, uploads, real QR galleries, payments, accounts. The finish-screen QR encodes nothing.

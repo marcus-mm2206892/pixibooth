@@ -27,13 +27,13 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   none: {
     id: "none",
     label: "Original",
-    description: "Clean, untouched color",
+    description: "True color",
     live: { css: "none" },
   },
   vintage: {
     id: "vintage",
     label: "Vintage Film",
-    description: "Warm black & white, deep shadows, soft vignette",
+    description: "Warm B&W, vignette",
     live: {
       css: "grayscale(1) sepia(0.22) contrast(1.18) brightness(0.96)",
       overlay: "radial-gradient(ellipse at center, rgba(20,16,12,0) 42%, rgba(20,16,12,0.4) 100%)",
@@ -42,7 +42,7 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   dreamy: {
     id: "dreamy",
     label: "Dreamy Glow",
-    description: "Soft bloom on the highlights",
+    description: "Soft glowing light",
     live: {
       css: "brightness(1.05) contrast(0.92) saturate(0.96)",
       overlay: "radial-gradient(ellipse at center, rgba(255,240,248,0) 55%, rgba(255,240,248,0.25) 100%)",
@@ -52,7 +52,7 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   flash: {
     id: "flash",
     label: "Disposable Flash",
-    description: "Punchy, warm, a little vignette",
+    description: "Punchy & warm",
     live: {
       css: "contrast(1.16) saturate(1.06) sepia(0.06) brightness(1.03)",
       overlay: "radial-gradient(ellipse at center, rgba(20,12,4,0) 45%, rgba(20,12,4,0.38) 100%)",
@@ -61,19 +61,19 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   pastel: {
     id: "pastel",
     label: "Soft Pastel",
-    description: "Light shadows, delicate color",
+    description: "Light & delicate",
     live: { css: "contrast(0.84) brightness(1.1) saturate(0.82)" },
   },
   cool: {
     id: "cool",
     label: "Cool Film",
-    description: "Blue-cyan shadows, clean highlights",
+    description: "Cool blue shadows",
     live: { css: "saturate(0.9) contrast(1.02)", overlay: "rgba(40, 100, 190, 0.35)", overlayBlend: "soft-light" },
   },
   mono: {
     id: "mono",
     label: "Monochrome ID",
-    description: "Crisp black and white",
+    description: "Crisp B&W",
     live: { css: "grayscale(1) contrast(1.14)" },
   },
 };
