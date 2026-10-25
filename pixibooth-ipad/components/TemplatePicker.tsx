@@ -29,7 +29,7 @@ export function TemplatePicker({
   return (
     <KioskShell rootRef={root} step={1} ticket={ticketNumber(session)}>
       <div data-enter className="flex shrink-0 items-end justify-between gap-4">
-        <ScreenTitle label="01 / SELECT" title="Choose your strip" />
+        <ScreenTitle label="01 / SELECT" jp="色を選ぶ" title="Choose your strip" />
         <Button variant="ghost" size="md" onClick={onBack}>
           <ArrowLeft className="size-5" aria-hidden />
           Back
@@ -96,11 +96,11 @@ export function TemplatePicker({
                       style={{ background: TEMPLATES[t].background }}
                       aria-hidden
                     />
-                    <span className="truncate font-display text-base font-bold uppercase tracking-wide text-pp-ink sm:text-lg">
+                    <span className="truncate font-label text-base font-bold uppercase tracking-wide text-pp-navy sm:text-lg">
                       {TEMPLATES[t].label}
                     </span>
                   </span>
-                  <span className={`font-pixel text-[11px] tracking-widest ${selected ? "text-pp-blue" : "invisible"}`}>
+                  <span className={`font-pixel text-[11px] tracking-widest ${selected ? "text-pp-navy" : "invisible"}`}>
                     ★ SELECTED
                   </span>
                 </PixelFrame>

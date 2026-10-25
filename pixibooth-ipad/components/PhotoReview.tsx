@@ -27,7 +27,7 @@ export function PhotoReview({
   return (
     <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)}>
       <div data-enter className="shrink-0">
-        <ScreenTitle label="03 / REVIEW" title="Look at these!" />
+        <ScreenTitle label="03 / REVIEW" jp="写真を確認" title="Look at these!" />
       </div>
 
       <div className="fit-box flex flex-1 items-center justify-center py-4">
@@ -36,7 +36,7 @@ export function PhotoReview({
           {session.photos.map((photo, i) =>
             photo ? (
               <div key={photo.id} data-enter className="px-shadow-light min-h-0">
-                <PixelFrame edge="bg-pp-blue" border={4} className="h-full" innerClassName="relative">
+                <PixelFrame edge="bg-pp-navy" border={4} className="h-full" innerClassName="relative">
                   <FilteredPhoto photo={photo} filter={session.filter} width={800} alt={`Photo ${i + 1} of ${SHOT_COUNT}`} />
                   <span className="absolute left-0 top-0 bg-pp-blue px-2.5 py-1 font-pixel text-sm tracking-widest text-white">
                     {pad2(i + 1)} / {pad2(SHOT_COUNT)}

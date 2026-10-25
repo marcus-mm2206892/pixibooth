@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-/** Display: tall, editorial signage headings. */
+/** Small section/eyebrow labels only. */
 const barlowCondensed = Barlow_Condensed({
   variable: "--font-barlow-condensed",
   weight: ["600", "700", "800"],
@@ -20,7 +20,7 @@ const barlowCondensed = Barlow_Condensed({
   display: "swap",
 });
 
-/** Pixel accent: short labels, counters, step numbers. Never long text. */
+/** Main typeface for the whole booth (Latin + Japanese). */
 const dotGothic = DotGothic16({
   variable: "--font-dotgothic",
   weight: "400",
@@ -44,7 +44,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#1854B8",
+  themeColor: "#0A2D69",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

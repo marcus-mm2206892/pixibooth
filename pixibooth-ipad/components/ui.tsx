@@ -19,7 +19,7 @@ const SIZES: Record<Size, string> = {
   sm: "min-h-11 px-3 gap-1.5 text-base",
   md: "min-h-12 px-5 gap-2 text-lg",
   lg: "min-h-14 px-7 gap-2.5 text-xl",
-  xl: "min-h-[76px] px-9 gap-3 text-[1.75rem]",
+  xl: "min-h-[76px] px-9 gap-3 text-[1.6rem]",
 };
 
 /** Pixel button: stepped corners, hard offset shadow, 3px press. */
@@ -35,7 +35,7 @@ export function Button({
     <button type="button" data-variant={variant} className={`px-btn ${className}`} {...props}>
       <span className="px-btn-edge px-corners">
         <span
-          className={`px-btn-face px-corners font-display font-bold uppercase leading-none tracking-wide ${SIZES[size]} ${faceClassName}`}
+          className={`px-btn-face px-corners font-pixel uppercase leading-none tracking-wider ${SIZES[size]} ${faceClassName}`}
         >
           {children}
         </span>
@@ -75,23 +75,38 @@ export function PixelFrame({
 }
 
 /** Step label (pixel font) + display title, used at the top of each screen. */
+/** Short Japanese accent text (pixel font, marked lang="ja" for correct glyphs and screen readers). */
+export function Jp({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <span lang="ja" className={`font-pixel tracking-normal ${className}`}>
+      {children}
+    </span>
+  );
+}
+
 export function ScreenTitle({
   label,
+  jp,
   title,
   inverse = false,
   className = "",
 }: {
   label: string;
+  /** Japanese sub-label shown after the step label. */
+  jp?: string;
   title: ReactNode;
   inverse?: boolean;
   className?: string;
 }) {
   return (
     <div className={className}>
-      <p className={`font-pixel text-sm tracking-[0.2em] ${inverse ? "text-white/75" : "text-pp-blue"}`}>{label}</p>
+      <p className={`font-label text-base font-bold uppercase tracking-[0.18em] ${inverse ? "text-white/75" : "text-pp-blue"}`}>
+        {label}
+        {jp && <Jp className="ml-3 opacity-80">{jp}</Jp>}
+      </p>
       <h1
-        className={`mt-0.5 flex items-center gap-3 font-display text-4xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-5xl ${
-          inverse ? "text-white" : "text-pp-blue"
+        className={`mt-1 flex items-center gap-3 font-pixel text-3xl uppercase leading-tight sm:text-4xl ${
+          inverse ? "text-white" : "text-pp-navy"
         }`}
       >
         {title}
@@ -114,7 +129,7 @@ export function PixelTag({
   return (
     <span
       className={`px-corners px-corners-sm inline-flex items-center gap-1.5 px-2.5 py-1 font-pixel text-sm tracking-wider ${
-        inverse ? "bg-white text-pp-blue" : "bg-pp-blue text-white"
+        inverse ? "bg-white text-pp-navy" : "bg-pp-navy text-white"
       } ${className}`}
     >
       {children}
@@ -196,15 +211,15 @@ export function ConfirmDialog({
   if (!open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-pp-blue-dark/60 p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-pp-navy/70 p-6"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
     >
       <div ref={panel} className="px-shadow w-full max-w-md">
-        <PixelFrame edge="bg-pp-blue" border={4} innerClassName="p-7 text-pp-ink">
-          <p className="font-pixel text-sm tracking-[0.2em] text-pp-blue">CONFIRM ★</p>
-          <h2 id="confirm-title" className="mt-1 font-display text-3xl font-extrabold uppercase text-pp-blue">
+        <PixelFrame edge="bg-pp-navy" border={4} innerClassName="p-7 text-pp-ink">
+          <p className="font-label text-base font-bold tracking-[0.18em] text-pp-blue">CONFIRM ★</p>
+          <h2 id="confirm-title" className="mt-1 font-pixel text-2xl uppercase leading-tight text-pp-navy">
             {title}
           </h2>
           {body && <p className="mt-2 text-base">{body}</p>}

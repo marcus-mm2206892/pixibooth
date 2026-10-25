@@ -26,7 +26,7 @@ export function StripCard({ session, celebrate = false }: { session: PhotoSessio
       innerClassName="relative flex flex-col items-center gap-3 px-6 pb-5 pt-4"
     >
       <RegMarks />
-      <p className="flex w-full items-center justify-between font-pixel text-xs tracking-widest text-pp-blue">
+      <p className="flex w-full items-center justify-between font-label text-sm font-bold tracking-[0.18em] text-pp-navy">
         <span>NO. {ticketNumber(session)}</span>
         <span>2×6 PRINT</span>
       </p>
@@ -41,7 +41,7 @@ export function StripCard({ session, celebrate = false }: { session: PhotoSessio
           />
         </div>
       </div>
-      <p className="font-pixel text-xs tracking-widest text-pp-blue/80">{stripDate(new Date(session.createdAt))}</p>
+      <p className="font-pixel text-xs tracking-widest text-pp-navy/80">{stripDate(new Date(session.createdAt))}</p>
     </PixelFrame>
   );
 }
@@ -73,11 +73,11 @@ export function ResultScreen({
 
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-1 pb-2 pt-1">
           <div data-enter>
-            <ScreenTitle label="04 / KEEP" title="Your strip" />
+            <ScreenTitle label="04 / KEEP" jp="完成！" title="Your strip" />
           </div>
 
           <section data-enter>
-            <h2 className="mb-2 font-pixel text-sm tracking-[0.2em] text-pp-blue">STRIP COLOR</h2>
+            <h2 className="mb-2 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">STRIP COLOR</h2>
             <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Strip color">
               {TEMPLATE_ORDER.map((t) => {
                 const selected = t === template;
@@ -91,7 +91,7 @@ export function ResultScreen({
                     className="min-h-12 text-left focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-pp-blue-dark"
                   >
                     <PixelFrame
-                      edge={selected ? "bg-pp-blue" : "bg-pp-blue-line"}
+                      edge={selected ? "bg-pp-navy" : "bg-pp-blue-line"}
                       border={selected ? 3 : 2}
                       step={3}
                       className="h-full"
@@ -104,7 +104,7 @@ export function ResultScreen({
                       >
                         {selected && <PixelStar size={12} />}
                       </span>
-                      <span className="truncate font-display text-sm font-bold uppercase leading-tight tracking-wide text-pp-ink">
+                      <span className="truncate font-label text-sm font-bold uppercase leading-tight tracking-wide text-pp-navy">
                         {TEMPLATES[t].label}
                       </span>
                     </PixelFrame>
@@ -115,7 +115,7 @@ export function ResultScreen({
           </section>
 
           <section data-enter>
-            <h2 className="mb-2 font-pixel text-sm tracking-[0.2em] text-pp-blue">FILTER</h2>
+            <h2 className="mb-2 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">FILTER</h2>
             <div className="flex flex-wrap gap-x-2.5 gap-y-3.5" role="radiogroup" aria-label="Filter">
               {FILTER_ORDER.map((f) => (
                 <Chip key={f} selected={f === filter} onClick={() => onFilter(f)}>
@@ -153,12 +153,12 @@ export function ResultScreen({
           </section>
 
           <section data-enter>
-            <h2 className="mb-2 font-pixel text-sm tracking-[0.2em] text-pp-blue">INDIVIDUAL PHOTOS</h2>
+            <h2 className="mb-2 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">INDIVIDUAL PHOTOS</h2>
             <div className="grid grid-cols-4 gap-3">
               {photos.map((photo, i) =>
                 photo ? (
                   <div key={photo.id} className="flex flex-col gap-2.5">
-                    <div className="aspect-532/390 overflow-hidden border-2 border-pp-blue">
+                    <div className="aspect-532/390 overflow-hidden border-2 border-pp-navy">
                       <FilteredPhoto photo={photo} filter={filter} width={260} alt={`Photo ${i + 1}`} />
                     </div>
                     <Button

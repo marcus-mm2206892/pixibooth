@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* pixipocket booth tokens. The app shell is cobalt + white only; the eight
+/* pixipocket booth tokens. The app shell is cobalt + navy + white; the eight
    printed-strip colors live in lib/photostrip.ts and never theme the UI. */
 :root {
   --pp-blue: #1854b8;
@@ -10,7 +10,8 @@
   --pp-blue-light: #ddebff;
   --pp-blue-soft: #f1f6ff;
   --pp-blue-line: #9fbfef;
-  --pp-ink: #14366a;
+  --pp-navy: #0a2d69;
+  --pp-ink: #0a2d69;
   --pp-focus: #0a2d69;
   --background: var(--pp-white);
   --foreground: var(--pp-ink);
@@ -26,11 +27,13 @@
   --color-pp-blue-light: var(--pp-blue-light);
   --color-pp-blue-soft: var(--pp-blue-soft);
   --color-pp-blue-line: var(--pp-blue-line);
+  --color-pp-navy: var(--pp-navy);
   --color-pp-ink: var(--pp-ink);
-  --font-sans: var(--font-geist-sans);
+  /* DotGothic16 is the main typeface; Barlow Condensed is only for small labels. */
+  --font-sans: var(--font-dotgothic);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-barlow-condensed);
   --font-pixel: var(--font-dotgothic);
+  --font-label: var(--font-barlow-condensed);
 }
 
 html,
@@ -42,7 +45,7 @@ body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-dotgothic), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -203,27 +206,27 @@ body {
 }
 .px-btn[data-variant="secondary"] {
   --btn-fill: var(--pp-white);
-  --btn-edge: var(--pp-blue);
-  --btn-ink: var(--pp-blue);
-  --btn-shadow: var(--pp-blue);
+  --btn-edge: var(--pp-navy);
+  --btn-ink: var(--pp-navy);
+  --btn-shadow: var(--pp-navy);
 }
 .px-btn[data-variant="inverse"] {
   --btn-fill: var(--pp-white);
   --btn-edge: var(--pp-white);
-  --btn-ink: var(--pp-blue);
-  --btn-shadow: var(--pp-blue-dark);
+  --btn-ink: var(--pp-navy);
+  --btn-shadow: var(--pp-blue);
 }
 .px-btn[data-variant="outline-inverse"] {
-  --btn-fill: var(--pp-blue);
+  --btn-fill: var(--pp-navy);
   --btn-edge: var(--pp-white);
   --btn-ink: var(--pp-white);
-  --btn-shadow: var(--pp-blue-dark);
+  --btn-shadow: var(--pp-blue);
 }
 .px-btn[data-variant="ghost"],
 .px-btn[data-variant="ghost-inverse"] {
   --btn-fill: transparent;
   --btn-edge: transparent;
-  --btn-ink: var(--pp-blue);
+  --btn-ink: var(--pp-navy);
   filter: none;
 }
 .px-btn[data-variant="ghost-inverse"] {

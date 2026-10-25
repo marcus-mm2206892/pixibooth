@@ -22,7 +22,7 @@ import { popIn, shutterFlash } from "@/lib/motion";
 import { CaptureProgress } from "./CaptureProgress";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { Button, ConfirmDialog, PixelFrame, PixelTag } from "./ui";
+import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
 
 const ERROR_COPY: Record<CameraErrorKind, { title: string; body: string }> = {
   insecure: {
@@ -134,32 +134,40 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
       ? `Take ${SHOT_COUNT} photos`
       : `Take ${remaining} more`;
 
+  // English status + a short Japanese kiosk label.
   let tag: string;
+  let tagJa: string;
   switch (phase) {
     case "countdown":
     case "capturing":
       tag = isRetake ? `RETAKE ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)}` : `SHOT ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)}`;
+      tagJa = "撮影中";
       break;
     case "pose-break":
       tag = "NICE! ★ NEXT POSE";
+      tagJa = "次のポーズ";
       break;
     case "paused":
       tag = "PAUSED";
+      tagJa = "一時停止";
       break;
     case "error":
       tag = "CHECK CAMERA";
+      tagJa = "カメラ確認";
       break;
     case "camera-setup":
       tag = state.cameraStatus === "starting" ? "STARTING…" : "CAMERA OFF";
+      tagJa = state.cameraStatus === "starting" ? "起動中" : "カメラオフ";
       break;
     default:
       tag = "READY!";
+      tagJa = "準備OK";
   }
 
   const errorCopy = state.error ? ERROR_COPY[state.error] : ERROR_COPY.unknown;
 
   return (
-    <KioskShell step={3} tone="blue" ticket={ticketNumber(session)}>
+    <KioskShell step={3} tone="navy" ticket={ticketNumber(session)}>
       {/* Toolbar: back on the left, idle-only camera controls on the right. */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
         <Button variant="ghost-inverse" size="md" onClick={requestCancel}>
@@ -200,13 +208,13 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
           {/* Pose tip lives above the viewport so it never covers faces. */}
           <div className="px-shadow shrink-0">
-            <PixelFrame edge="bg-pp-blue-dark" border={3} innerClassName="flex min-h-16 items-center gap-4 px-3 py-2">
+            <PixelFrame edge="bg-pp-blue" border={3} innerClassName="flex min-h-16 items-center gap-4 px-3 py-2">
               <span className="shrink-0 bg-pp-blue px-2 py-1 font-pixel text-sm tracking-widest text-white">
                 {phase === "pose-break" ? "NEXT POSE ★" : "POSE TIP ★"}
               </span>
               <p
                 key={pose}
-                className="min-w-0 flex-1 font-display text-[clamp(1.6rem,3.6vmin,2.6rem)] font-extrabold uppercase leading-none tracking-tight text-pp-blue"
+                className="min-w-0 flex-1 font-pixel text-[clamp(1.4rem,3.2vmin,2.3rem)] uppercase leading-tight text-pp-navy"
                 aria-live="polite"
               >
                 {idle && !isRetake ? "Get ready to pose!" : pose}
@@ -269,7 +277,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 <span
                   key={countdown}
                   ref={badgeRef}
-                  className="px-corners absolute right-4 top-4 flex size-16 items-center justify-center bg-white font-display text-5xl font-extrabold text-pp-blue"
+                  className="px-corners absolute right-4 top-4 flex size-16 items-center justify-center bg-white font-pixel text-5xl text-pp-navy"
                   aria-hidden
                 >
                   {countdown}
@@ -309,7 +317,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-pp-blue-dark/85 p-6 text-center">
                   <Pause className="size-14" aria-hidden />
                   <div>
-                    <p className="font-display text-5xl font-extrabold uppercase">Paused</p>
+                    <p className="font-pixel text-5xl uppercase">Paused</p>
                     <p className="mt-2 max-w-md text-white/80">
                       {state.pausedBy === "hidden"
                         ? "The screen was hidden, so we stopped the countdown. Nothing was taken while away."
@@ -327,7 +335,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 <div className="absolute inset-0 overflow-y-auto bg-pp-blue-dark">
                   <div className="flex min-h-full flex-col items-center justify-center gap-4 p-6 text-center">
                     <PixelTag inverse>CHECK CAMERA ★</PixelTag>
-                    <p className="font-display text-3xl font-extrabold uppercase">{errorCopy.title}</p>
+                    <p className="font-pixel text-2xl uppercase leading-tight">{errorCopy.title}</p>
                     <p className="max-w-lg text-white/80">{errorCopy.body}</p>
                     <Button variant="inverse" size="lg" onClick={() => engine.retryAfterError()}>
                       <Reload className="size-6" aria-hidden />
@@ -347,7 +355,10 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
         <aside className="grid shrink-0 grid-cols-2 items-center gap-x-6 gap-y-4 landscape:flex landscape:w-[min(34%,380px)] landscape:flex-col landscape:items-stretch landscape:justify-center">
           <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
-            <PixelTag inverse>{tag}</PixelTag>
+            <PixelTag inverse>
+              {tag}
+              <Jp className="ml-1">{tagJa}</Jp>
+            </PixelTag>
             {(capturing || phase === "paused") && (
               <span className="flex items-center gap-1.5 font-pixel text-xs tracking-widest text-white/75">
                 {settings.sound ? <Volume2 className="size-4" aria-hidden /> : <VolumeX className="size-4" aria-hidden />}
@@ -361,13 +372,13 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               <span
                 key={countdown}
                 ref={countRef}
-                className="font-display text-[clamp(6rem,13vh,9rem)] font-extrabold leading-none tabular-nums landscape:text-[clamp(8rem,32vh,16rem)]"
+                className="font-pixel text-[clamp(6rem,13vh,9rem)] leading-none tabular-nums landscape:text-[clamp(8rem,32vh,16rem)]"
               >
                 {countdown}
               </span>
             ) : (
               <div>
-                <p className="font-display text-4xl font-extrabold uppercase leading-[0.95] landscape:text-5xl">
+                <p className="font-pixel text-3xl uppercase leading-tight landscape:text-4xl">
                   {phase === "capturing"
                     ? "Snap! ★"
                     : phase === "pose-break"

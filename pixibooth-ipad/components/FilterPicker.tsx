@@ -46,7 +46,7 @@ export function FilterPicker({
   return (
     <KioskShell rootRef={root} step={2} ticket={ticketNumber(session)}>
       <div data-enter className="flex shrink-0 items-end justify-between gap-4">
-        <ScreenTitle label="02 / FILTER" title="Pick a filter" />
+        <ScreenTitle label="02 / FILTER" jp="フィルターを選ぶ" title="Pick a filter" />
         <Button variant="ghost" size="md" onClick={onBack}>
           <ArrowLeft className="size-5" aria-hidden />
           Back
@@ -86,14 +86,14 @@ export function FilterPicker({
                   <div className="relative">
                     <FilterSample filter={f} />
                     {selected && (
-                      <span className="absolute left-2 top-2 bg-pp-blue px-2 py-0.5 font-pixel text-xs tracking-widest text-white">
+                      <span className="absolute left-2 top-2 bg-pp-navy px-2 py-0.5 font-pixel text-xs tracking-widest text-white">
                         ★ SELECTED
                       </span>
                     )}
                   </div>
                   <span className="flex items-start justify-between gap-2 px-1">
                     <span className="min-w-0">
-                      <span className="block truncate font-display text-xl font-bold uppercase leading-tight tracking-wide text-pp-blue">
+                      <span className="block truncate font-label text-xl font-bold uppercase leading-tight tracking-wide text-pp-navy">
                         {info.label}
                       </span>
                       <span className="block truncate text-sm leading-snug text-pp-ink/75">{info.description}</span>

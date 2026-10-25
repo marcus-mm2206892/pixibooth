@@ -101,9 +101,10 @@ function fontFamily(variable: string, fallback: string): string {
   return value ? `${value}, ${fallback}` : fallback;
 }
 
-async function ensureFont(spec: string) {
+/** `text` matters for CJK: web fonts are split by unicode-range, so only the glyph slices for that text load. */
+async function ensureFont(spec: string, text?: string) {
   try {
-    await document.fonts?.load(spec);
+    await document.fonts?.load(spec, text);
   } catch {
     // Canvas falls back to the next family in the stack.
   }
@@ -120,7 +121,12 @@ export async function renderStrip(
   const display = fontFamily("--font-barlow-condensed", "'Arial Narrow', sans-serif");
   const dateFont = `400 ${Math.round(17 * s)}px ${pixel}`;
   const fallbackFont = `800 ${Math.round(40 * s)}px ${display}`;
-  const [logo] = await Promise.all([loadLogo(style.logo), ensureFont(dateFont), ensureFont(fallbackFont)]);
+  const dateText = stripDate(date);
+  const [logo] = await Promise.all([
+    loadLogo(style.logo),
+    ensureFont(dateFont, dateText),
+    ensureFont(fallbackFont, BRAND_NAME),
+  ]);
 
   canvas.width = Math.round(width);
   canvas.height = Math.round(width * 3);
@@ -174,7 +180,7 @@ export async function renderStrip(
   ctx.font = dateFont;
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(stripDate(date), x + 2 * s, logoY + logoH + 6 * s);
+  ctx.fillText(dateText, x + 2 * s, logoY + logoH + 6 * s);
   ctx.textBaseline = "alphabetic";
 
   return canvas;

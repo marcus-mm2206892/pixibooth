@@ -107,9 +107,9 @@ export function dayStamp(date = new Date()): string {
   return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}`;
 }
 
-/** Printed strip date, e.g. 25.10.2026 (device-local time). */
+/** Printed strip date in standard Japanese form, e.g. 2026年10月25日 (device-local time). */
 export function stripDate(date: Date): string {
-  return `${pad(date.getDate())}.${pad(date.getMonth() + 1)}.${date.getFullYear()}`;
+  return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
 /** Sequential per-day session label (S001, S002…) kept in localStorage; random fallback. */
