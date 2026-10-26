@@ -56,8 +56,6 @@ export type BoothState = {
   facing: FacingMode;
   mirror: boolean;
   cameraCount: number;
-  /** Browser camera permission as reported by the Permissions API ("unknown" if unsupported). */
-  cameraPermission: "granted" | "prompt" | "denied" | "unknown";
   settings: BoothSettings;
 };
 
@@ -92,7 +90,6 @@ function initialState(): BoothState {
     facing: "user",
     mirror: true,
     cameraCount: 1,
-    cameraPermission: "unknown",
     settings: DEFAULT_SETTINGS,
   };
 }
@@ -156,7 +153,8 @@ export class BoothEngine {
 
   private resetTo(phase: "welcome" | "style-select") {
     this.cancelRun();
-    // Dedicated kiosk: the camera stays on between sessions so Start is instant.
+    // The style screen previews the live camera, so only the welcome screen turns it off.
+    if (phase === "welcome") this.stopCamera();
     this.state.session.photos.forEach(releasePhoto);
     this.retakeOriginalId = null;
     this.patch({
@@ -198,6 +196,7 @@ export class BoothEngine {
   finish() {
     if (this.state.phase !== "result") return;
     this.cancelRun();
+    this.stopCamera();
     this.state.session.photos.forEach(releasePhoto);
     this.retakeOriginalId = null;
     this.patch({ phase: "thanks", session: blankSession(), mode: "sequence", retakeSlot: null, activeSlot: null });
@@ -286,35 +285,6 @@ export class BoothEngine {
       if (!this.camera.isLive()) this.handleCameraLost();
       else void this.requestWakeLock();
     }
-    // iPadOS may stop the camera while the app is in the background: bring it back
-    // on screens that don't own a capture flow (no prompt once permission is granted).
-    const { phase } = this.state;
-    if ((phase === "welcome" || phase === "style-select" || phase === "result") && !this.camera.isLive()) {
-      void this.startPreview();
-    }
-  }
-
-  /**
-   * App start (landing page): if camera access was already granted, start the
-   * camera right away so Start is instant. First-time permission still needs a
-   * tap (see the landing page's setup button). Never bypasses browser prompts.
-   */
-  async init() {
-    let permission: BoothState["cameraPermission"] = "unknown";
-    try {
-      const status = await navigator.permissions?.query({ name: "camera" as PermissionName });
-      if (status) {
-        permission = status.state as BoothState["cameraPermission"];
-        status.onchange = () => {
-          this.patch({ cameraPermission: status.state as BoothState["cameraPermission"] });
-          if (status.state === "granted" && !this.camera.isLive()) void this.startPreview();
-        };
-      }
-    } catch {
-      // Permissions API missing or "camera" unsupported: wait for the setup tap.
-    }
-    this.patch({ cameraPermission: permission });
-    if (permission === "granted") await this.startPreview();
   }
 
   /** Recover from the error screen. */
@@ -483,6 +453,8 @@ export class BoothEngine {
       countdown: null,
       pausedBy: null,
     });
+    // The camera stays warm only while a retake is still available.
+    if (this.state.session.retakesUsed >= MAX_RETAKES) this.stopCamera();
   }
 
   // ── timing ────────────────────────────────────────────────────────────────

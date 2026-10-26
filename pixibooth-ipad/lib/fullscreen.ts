@@ -27,27 +27,3 @@ export function enterFullscreen(): void {
     // unsupported or blocked: the booth works the same without it
   }
 }
-
-/** Launched from the Home Screen icon (no browser bars at all). */
-export function isStandalone(): boolean {
-  return (
-    window.matchMedia("(display-mode: fullscreen)").matches ||
-    window.matchMedia("(display-mode: standalone)").matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-/** True when the screen still shows browser chrome that full screen could remove. */
-export function needsFullscreen(): boolean {
-  return !isStandalone() && canFullscreen() && !isFullscreen();
-}
-
-/** Subscribe to full-screen changes (for useSyncExternalStore). */
-export function onFullscreenChange(callback: () => void): () => void {
-  document.addEventListener("fullscreenchange", callback);
-  document.addEventListener("webkitfullscreenchange", callback);
-  return () => {
-    document.removeEventListener("fullscreenchange", callback);
-    document.removeEventListener("webkitfullscreenchange", callback);
-  };
-}

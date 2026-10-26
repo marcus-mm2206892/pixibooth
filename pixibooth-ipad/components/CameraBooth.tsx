@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
+  FlipHorizontal2,
   Pause,
   Play,
   Reload,
@@ -18,6 +19,7 @@ import { SHOT_COUNT, TIMING, nextEmptySlot } from "@/lib/session";
 import { popIn } from "@/lib/motion";
 import { CaptureProgress } from "./CaptureProgress";
 import { DreamFilmLive } from "./DreamFilmLive";
+import { DREAM_FILM } from "@/lib/dreamFilm";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
@@ -29,7 +31,6 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror } = state;
   const { photos, filter, poses } = session;
   const videoRef = useRef<HTMLVideoElement>(null);
-  const glowRef = useRef<HTMLVideoElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const starRef = useRef<HTMLSpanElement>(null);
@@ -50,12 +51,11 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   }, [engine]);
 
   useEffect(() => {
-    for (const video of [videoRef.current, glowRef.current]) {
-      if (!video) continue;
-      if (video.srcObject !== stream) video.srcObject = stream;
-      if (stream) video.play().catch(() => {});
-    }
-  }, [stream, filter]);
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.srcObject !== stream) video.srcObject = stream;
+    if (stream) video.play().catch(() => {});
+  }, [stream]);
 
   useEffect(() => {
     if (state.flashCount === lastFlash.current) return;
@@ -135,6 +135,15 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
         </Button>
         {phase === "camera-ready" && (
           <div className="flex flex-wrap gap-3">
+            <Button
+              variant={mirror ? "inverse" : "outline-inverse"}
+              size="sm"
+              aria-pressed={mirror}
+              onClick={() => engine.toggleMirror()}
+            >
+              <FlipHorizontal2 className="size-5" aria-hidden />
+              Mirror
+            </Button>
             {state.cameraCount > 1 && (
               <Button variant="outline-inverse" size="sm" aria-label="Switch camera" onClick={() => engine.flipCamera()}>
                 <Repeat className="size-5" aria-hidden />
@@ -166,18 +175,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: live.css }}
               />
-              {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} preset={live.gpu} />}
-              {live.glow && (
-                <video
-                  ref={glowRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-screen"
-                  style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: `${live.css} brightness(1.15) blur(16px)` }}
-                />
-              )}
+              {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} preset={DREAM_FILM} />}
               {live.overlay && (
                 <div
                   className="pointer-events-none absolute inset-0"
@@ -354,6 +352,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos)}
           />
 
+          {idle && (
+            <p className="col-span-2 flex items-center justify-between gap-2 font-pixel text-xs tracking-widest text-white/75">
+              <span>FILTER: {FILTERS[filter].label.toUpperCase()}</span>
+              <button
+                type="button"
+                className="min-h-11 px-2 underline decoration-2 underline-offset-4"
+                onClick={() => engine.showStyle()}
+              >
+                CHANGE
+              </button>
+            </p>
+          )}
 
           {phase === "camera-ready" && (
             <Button

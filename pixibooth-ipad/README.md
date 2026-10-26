@@ -28,7 +28,7 @@ Pick one of these:
 2. **Vercel preview deploy.** There is no backend and there are no secrets, so `npx vercel` (free) gives you an HTTPS URL that works on any device.
 3. **Trusted LAN certificate.** `next dev --experimental-https` creates a certificate that your **Mac** trusts. The iPad will **not** trust it unless you install and fully trust the mkcert root CA on the iPad (Settings › General › About › Certificate Trust Settings) and serve a certificate that covers the Mac's LAN IP. That is more work than options 1 and 2.
 
-**Startup / full screen:** the landing page is the setup point. If camera access was granted before, the camera starts there automatically and *Start photo session* unlocks once it is live. On the very first run (or after a denial) staff tap **Set up booth** once: it shows the camera permission prompt and enters full screen. The camera then stays on between sessions, so Start is instant. For a permanent kiosk with no browser bars at all, open the booth in Safari › Share › **Add to Home Screen** and launch it from the icon (`app/manifest.ts` sets `display: fullscreen`).
+**Full screen:** tapping *Start photo session* asks the browser for full screen (works in iPadOS Safari and desktop Chrome/Safari). For a permanent kiosk with no browser bars at all, open the booth in Safari › Share › **Add to Home Screen** and launch it from the icon (`app/manifest.ts` sets `display: fullscreen`).
 
 Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided Access**. Set **Auto-Lock** to Never; the app also requests a Wake Lock where supported. If camera access was denied: tap **aA** in the address bar › Website Settings › Camera › Allow.
 
@@ -47,7 +47,7 @@ Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided
 | `lib/boothEngine.ts` | Finite state machine (template → filter → camera → countdown/capture/pose-break → review → result), rAF/`performance.now` timers, cancellation tokens, pause/resume, wake lock, shutter sound. Lives outside React. |
 | `lib/camera.ts` | `CameraAdapter` interface + `BrowserCameraAdapter` (getUserMedia, center-cover-cropped and optionally mirrored still capture, error mapping). Swap this for a future PC/DSLR adapter. |
 | `lib/photostrip.ts` | 600×1800 layout, the 8 strip colors (with black/white logo choice), and `renderStrip()` / `renderStripPng()` used by thumbnails, preview and export. Footer = real logo PNG bottom-left, date (`DD.MM.YYYY`) directly below. |
-| `lib/filters.ts` | Three filters: Auto = original, Vintage = the Canva warm-B&W recipe, Dreamy = soft highlight bloom (Dream Film in `lib/dreamFilm.ts` is kept but not offered) as pure canvas pixel operations, so iPad Safari exports match the preview; CSS approximations for the live camera only. |
+| `lib/filters.ts` | Three filters (Auto = original, Vintage = the Canva warm-B&W recipe, Dream Film = see `lib/dreamFilm.ts`) as pure canvas pixel operations, so iPad Safari exports match the preview; CSS approximations for the live camera only. |
 | `lib/dreamFilm.ts` | Dream Film: the editable `DREAM_FILM` preset and a 5-stage WebGL pipeline (grade → soft focus → bloom → grain → edge fade) used for the live camera, previews and saved photos alike; CPU fallback in `filters.ts`. |
 | `lib/poses.ts` | Pose-tip catalog; four distinct prompts per session (cute, cheeky, stylish, freestyle). |
 | `lib/audio.ts` | Web Audio ticks and shutter chime, unlocked on the Start/Take tap for iOS. |

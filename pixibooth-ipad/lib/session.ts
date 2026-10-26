@@ -12,7 +12,7 @@ export type TemplateColor =
   | "lavender"
   | "yellow";
 
-export type FilterId = "none" | "vintage" | "dreamy" | "dreamfilm";
+export type FilterId = "none" | "vintage" | "dreamfilm";
 
 export type CapturedPhoto = {
   id: string;

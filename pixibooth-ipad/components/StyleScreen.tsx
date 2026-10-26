@@ -1,12 +1,13 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useRef } from "react";
 import { ArrowLeft, Camera, Reload } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import type { FilterId } from "@/lib/session";
 import { ticketNumber } from "@/lib/session";
 import type { PhotoSource } from "@/lib/photos";
-import { FILTERS, FILTER_ORDER, applyFilter } from "@/lib/filters";
+import { FILTERS, FILTER_ORDER } from "@/lib/filters";
 import { SLOT_ASPECT, TEMPLATES, TEMPLATE_ORDER, renderStrip } from "@/lib/photostrip";
 import { getSamplePhotos } from "@/lib/sampleScene";
 import { coverCrop, get2d, makeCanvas, releaseCanvas } from "@/lib/canvas";
@@ -34,20 +35,25 @@ function grabFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement, mirror: b
   ctx.restore();
 }
 
-/** The illustrated sample photo run through the real export filter. */
+/** Example photo for each filter, shown on the filter cards. */
+const FILTER_PREVIEW: Record<FilterId, string> = {
+  none: "/filters/auto.jpg",
+  vintage: "/filters/vintage.jpg",
+  dreamfilm: "/filters/dreamfilm.jpg",
+};
+
 function FilterSample({ filter }: { filter: FilterId }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const sample = getSamplePhotos()[0];
-    canvas.width = sample.width;
-    canvas.height = sample.height;
-    const ctx = get2d(canvas);
-    ctx.drawImage(sample.image, 0, 0);
-    applyFilter(ctx, sample.width, sample.height, filter, sample.seed);
-  }, [filter]);
-  return <canvas ref={ref} aria-hidden className="block aspect-532/390 w-full" />;
+  return (
+    <Image
+      src={FILTER_PREVIEW[filter]}
+      alt=""
+      width={532}
+      height={390}
+      sizes="(orientation: landscape) 20vw, 40vw"
+      loading="eager"
+      className="block aspect-532/390 w-full object-cover"
+    />
+  );
 }
 
 /**
@@ -199,12 +205,13 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     bump(cards.current[t]);
                   }}
                   className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl short:size-14 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
-                    selected ? "ring-[3px] ring-pp-navy blink-ring" : "ring-1 ring-pp-navy/20"
+                    selected ? "ring-[3px] ring-pp-navy" : "ring-1 ring-pp-navy/20"
                   }`}
                   style={{ background: style.background }}
                 >
                   {selected && (
                     <>
+                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 rounded-2xl border-4 border-pp-blue" />
                       <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />
                     </>
                   )}
@@ -240,8 +247,11 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     }}
                     className="relative text-left focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
                   >
+                    {selected && (
+                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-1.5 z-10 border-4 border-pp-blue" />
+                    )}
                     <PixelFrame
-                      edge={selected ? "bg-pp-navy blink-edge" : "bg-pp-blue-line"}
+                      edge={selected ? "bg-pp-navy" : "bg-pp-blue-line"}
                       fill={selected ? "bg-pp-blue-soft" : "bg-white"}
                       border={selected ? 4 : 2}
                       innerClassName="flex items-center gap-3 p-2.5 landscape:flex-col landscape:items-stretch landscape:gap-2"

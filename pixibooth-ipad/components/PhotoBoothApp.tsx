@@ -15,7 +15,6 @@ export default function PhotoBoothApp() {
   const state = useSyncExternalStore(engine.subscribe, engine.getSnapshot, engine.getSnapshot);
 
   useEffect(() => {
-    void engine.init();
     const onVisibility = () => engine.handleVisibility(document.visibilityState === "hidden");
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -38,7 +37,7 @@ export default function PhotoBoothApp() {
       case "thanks":
         return <ThanksScreen onDone={() => engine.goHome()} />;
       default:
-        return <WelcomeScreen state={state} engine={engine} />;
+        return <WelcomeScreen onStart={() => engine.begin()} />;
     }
   })();
 
