@@ -2,10 +2,10 @@
 // and milky faded edges. One WebGL pipeline renders it for the live camera
 // preview and for captured photos/strips, so both use identical math.
 //
-// Pipeline (all sigmas are px at 1024 px on the shorter side, scaled to the
-// output size):
-//   1 grade  →  2 soft focus (15% gaussian)  →  3 bloom (soft-knee threshold,
-//   blurred at ¼ res, screen 16%)  →  4 grain (stable per seed)  →  5 edge fade
+// Pipeline (all sigmas are px at 1280 px image width, scaled to the output size):
+//   1 grade  →  2 optical diffusion (σ2 gaussian, screen 10%)  →  3 bloom
+//   (soft-knee threshold on the graded image, blurred at ¼ res, warm-white tint,
+//   screen 18%)  →  4 grain (stable per seed)  →  5 faint edge haze
 
 export const DREAM_FILM = {
   name: "Dream Film",
@@ -39,17 +39,27 @@ export const DREAM_FILM = {
     depth: 0.04, // slight darkening so lips read as color, not glow
   },
 
-  // SOFT OPTICAL DIFFUSION
-  softFocus: { enabled: true, gaussianSigma: 1.5, blurMix: 0.15 },
+  // SOFT OPTICAL DIFFUSION: a lightly blurred copy screened over the untouched image.
+  softFocus: { enabled: true, gaussianSigma: 2, opacity: 0.1, blendMode: "screen" },
 
-  // DREAMY HIGHLIGHT BLOOM
-  bloom: { enabled: true, threshold: 0.72, softKnee: 0.1, blurSigma: 12, opacity: 0.16, blendMode: "screen" },
+  // HIGHLIGHT BLOOM: only bright skin/whites glow (early-2000s flash scatter);
+  // hair, shadows and features stay below the threshold.
+  bloom: {
+    enabled: true,
+    threshold: 0.78,
+    softKnee: 0.12,
+    blurSigma: 16,
+    opacity: 0.18,
+    tint: "#FFF3E4",
+    blendMode: "screen",
+  },
 
   // ANALOG FILM GRAIN
   grain: { enabled: true, luminanceStdDev: 0.012, chromaStdDev: 0.004, monochromeMix: 0.85 },
 
-  // SOFT FADED PHOTOGRAPHIC EDGES
-  edgeFade: { enabled: true, color: "#FFFBF7", widthFraction: 0.14, maxOpacity: 0.68, falloffPower: 1.6 },
+  // SOFT FADED PHOTOGRAPHIC EDGES: barely-there haze (was 0.68 opacity, ~82% less);
+  // the strongest edge wins rather than stacking, so corners stay clear.
+  edgeFade: { enabled: true, color: "#FFFBF7", widthFraction: 0.1, maxOpacity: 0.12, falloffPower: 2 },
 
   // OTHER
   vignette: 0,
@@ -59,8 +69,8 @@ export const DREAM_FILM = {
 
 export type DreamFilmPreset = typeof DREAM_FILM;
 
-/** Sigmas in the preset are defined at this shorter-side size. */
-const REFERENCE_SHORT_SIDE = 1024;
+/** Sigmas in the preset are defined at this image width. */
+const REFERENCE_WIDTH = 1280;
 /** Bloom is extracted and blurred at 1/BLOOM_DOWNSCALE resolution (it is very soft anyway). */
 const BLOOM_DOWNSCALE = 4;
 
@@ -148,13 +158,14 @@ void main() {
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
-/** Separable gaussian; result = mix(base, blur, u_mix). */
+/** Separable gaussian; result = mix(base, blur, u_mix), or screen(base, blur) at u_mix when u_screen is set. */
 const BLUR_FRAG = `${PRECISION}
 uniform sampler2D u_tex;
 uniform sampler2D u_base;
 uniform vec2 u_step;      // one texel along the blur axis
 uniform float u_sigma;
 uniform float u_mix;
+uniform float u_screen;
 
 void main() {
   float s = max(u_sigma, 0.05);
@@ -170,7 +181,8 @@ void main() {
   }
   vec3 blur = acc / wsum;
   vec3 base = texture2D(u_base, v_uv).rgb;
-  gl_FragColor = vec4(mix(base, blur, u_mix), 1.0);
+  vec3 c = u_screen > 0.5 ? base + (blur - base * blur) * u_mix : mix(base, blur, u_mix);
+  gl_FragColor = vec4(c, 1.0);
 }`;
 
 /** Stage 3a: soft-knee highlight extraction. */
@@ -194,6 +206,7 @@ uniform sampler2D u_bloom;
 uniform vec2 u_size;
 uniform float u_seed;
 uniform float u_bloomOpacity;
+uniform vec3 u_bloomTint;
 uniform float u_lumStd, u_chromaStd, u_mono;
 uniform vec3 u_edgeColor;
 uniform float u_edgeWidth, u_edgeOpacity, u_edgePower;
@@ -212,7 +225,7 @@ float gauss(vec2 p) {
 
 void main() {
   vec3 c = texture2D(u_soft, v_uv).rgb;
-  vec3 b = texture2D(u_bloom, v_uv).rgb;
+  vec3 b = texture2D(u_bloom, v_uv).rgb * u_bloomTint;
   c = c + (b - c * b) * u_bloomOpacity;             // screen at opacity
 
   vec2 p = floor(v_uv * u_size) + u_seed * 7.13;
@@ -220,14 +233,14 @@ void main() {
   vec3 nc = vec3(gauss(p + 101.0), gauss(p + 211.0), gauss(p + 307.0));
   c += vec3(n) * u_lumStd * u_mono + nc * (u_lumStd * (1.0 - u_mono) + u_chromaStd);
 
-  // Milky edges: fade from each axis combined, so corners stay round, never a hard rectangle.
+  // Faint edge haze: the stronger axis wins (no stacking), so corners stay clear.
   vec2 px = v_uv * u_size;
   float w = u_edgeWidth * min(u_size.x, u_size.y);
   float dx = min(px.x, u_size.x - px.x);
   float dy = min(px.y, u_size.y - px.y);
   float ax = pow(smoothstep(0.0, 1.0, 1.0 - clamp(dx / w, 0.0, 1.0)), u_edgePower);
   float ay = pow(smoothstep(0.0, 1.0, 1.0 - clamp(dy / w, 0.0, 1.0)), u_edgePower);
-  float a = u_edgeOpacity * (1.0 - (1.0 - ax) * (1.0 - ay));
+  float a = u_edgeOpacity * max(ax, ay);
   c = mix(c, u_edgeColor, a);
 
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
@@ -389,7 +402,7 @@ export class DreamFilmRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
 
     const t = this.targetsFor(W, H);
-    const k = Math.min(W, H) / REFERENCE_SHORT_SIDE;
+    const k = W / REFERENCE_WIDTH;
     const { grade, blur, bright, final } = this.programs;
 
     // 1. grade (+ crop/mirror)
@@ -417,23 +430,32 @@ export class DreamFilmRenderer {
       gl.uniform1f(grade.loc("u_lipDepth"), lip.enabled ? lip.depth : 0);
     });
 
-    const blurPass = (from: Target, base: Target, out: Target, dir: [number, number], sigma: number, mix: number) =>
+    const blurPass = (
+      from: Target,
+      base: Target,
+      out: Target,
+      dir: [number, number],
+      sigma: number,
+      mix: number,
+      screen = false,
+    ) =>
       this.pass(blur, out, out.w, out.h, [from.tex, base.tex], () => {
         gl.uniform1i(blur.loc("u_tex"), 0);
         gl.uniform1i(blur.loc("u_base"), 1);
         gl.uniform2f(blur.loc("u_step"), dir[0] / from.w, dir[1] / from.h);
         gl.uniform1f(blur.loc("u_sigma"), sigma);
         gl.uniform1f(blur.loc("u_mix"), mix);
+        gl.uniform1f(blur.loc("u_screen"), screen ? 1 : 0);
       });
 
-    // 2. soft focus: 85% graded + 15% gaussian
+    // 2. optical diffusion: blurred copy screened over the graded image
     const softSigma = P.softFocus.gaussianSigma * k;
-    const softMix = P.softFocus.enabled ? P.softFocus.blurMix : 0;
+    const softMix = P.softFocus.enabled ? P.softFocus.opacity : 0;
     blurPass(t.grade, t.grade, t.tmp, [1, 0], softSigma, 1);
-    blurPass(t.tmp, t.grade, t.soft, [0, 1], softSigma, softMix);
+    blurPass(t.tmp, t.grade, t.soft, [0, 1], softSigma, softMix, true);
 
-    // 3. bloom: soft-knee bright pass at ¼ res, gaussian blur
-    this.pass(bright, t.bright, t.bright.w, t.bright.h, [t.soft.tex], () => {
+    // 3. bloom: soft-knee bright pass of the graded image at ¼ res, gaussian blur
+    this.pass(bright, t.bright, t.bright.w, t.bright.h, [t.grade.tex], () => {
       gl.uniform1i(bright.loc("u_tex"), 0);
       gl.uniform1f(bright.loc("u_threshold"), P.bloom.threshold);
       gl.uniform1f(bright.loc("u_knee"), P.bloom.softKnee);
@@ -444,12 +466,14 @@ export class DreamFilmRenderer {
 
     // 3b–5. screen bloom, grain, edge fade → canvas
     const edge = hexToRgb(P.edgeFade.color);
+    const tint = hexToRgb(P.bloom.tint);
     this.pass(final, null, W, H, [t.soft.tex, t.bloom.tex], () => {
       gl.uniform1i(final.loc("u_soft"), 0);
       gl.uniform1i(final.loc("u_bloom"), 1);
       gl.uniform2f(final.loc("u_size"), W, H);
       gl.uniform1f(final.loc("u_seed"), (opts.seed ?? 1) % 997);
       gl.uniform1f(final.loc("u_bloomOpacity"), P.bloom.enabled ? P.bloom.opacity : 0);
+      gl.uniform3f(final.loc("u_bloomTint"), tint[0], tint[1], tint[2]);
       gl.uniform1f(final.loc("u_lumStd"), P.grain.enabled ? P.grain.luminanceStdDev : 0);
       gl.uniform1f(final.loc("u_chromaStd"), P.grain.enabled ? P.grain.chromaStdDev : 0);
       gl.uniform1f(final.loc("u_mono"), P.grain.monochromeMix);

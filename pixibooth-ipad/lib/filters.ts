@@ -201,7 +201,25 @@ function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed:
   }
   ctx.putImageData(image, 0, 0);
 
+  // Bloom is taken from the graded image, before diffusion lifts it (same as the GPU path).
   const bloom = brightPass(ctx.canvas, w, h);
+
+  // Optical diffusion: a lightly softened copy screened over the image.
+  if (P.softFocus.enabled) {
+    const f = Math.max(1.5, ((P.softFocus.gaussianSigma * w) / 1280) * 1.5);
+    const small = makeCanvas(Math.max(4, w / f), Math.max(4, h / f));
+    const sctx = get2d(small);
+    sctx.imageSmoothingQuality = "high";
+    sctx.drawImage(ctx.canvas, 0, 0, w, h, 0, 0, small.width, small.height);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = P.softFocus.opacity;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(small, 0, 0, w, h);
+    ctx.restore();
+    releaseCanvas(small);
+  }
+
   ctx.save();
   ctx.globalCompositeOperation = "screen";
   ctx.globalAlpha = P.bloom.opacity;
@@ -221,7 +239,7 @@ function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed:
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
       const n = (rand() + rand() + rand() - 1.5) * 2 * P.grain.luminanceStdDev * 255;
-      const a = P.edgeFade.maxOpacity * (1 - (1 - fade(Math.min(x, w - 1 - x))) * (1 - ay));
+      const a = P.edgeFade.maxOpacity * Math.max(fade(Math.min(x, w - 1 - x)), ay);
       for (let k = 0; k < 3; k++) o[i + k] = clamp((o[i + k] + n) * (1 - a) + ec[k] * a);
     }
   }
@@ -236,12 +254,18 @@ function brightPass(source: HTMLCanvasElement, w: number, h: number): HTMLCanvas
   sctx.drawImage(source, 0, 0, w, h, 0, 0, small.width, small.height);
   const image = sctx.getImageData(0, 0, small.width, small.height);
   const d = image.data;
+  const { threshold, softKnee, tint } = DREAM_FILM.bloom;
+  const lo = (threshold - softKnee) * 255;
+  const hex = parseInt(tint.slice(1), 16);
+  const tr = ((hex >> 16) & 255) / 255;
+  const tg = ((hex >> 8) & 255) / 255;
+  const tb = (hex & 255) / 255;
   for (let i = 0; i < d.length; i += 4) {
-    const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const k = Math.min(1, Math.max(0, (lum - 160) / 95));
-    d[i] *= k;
-    d[i + 1] *= k;
-    d[i + 2] *= k;
+    const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+    const k = Math.min(1, Math.max(0, (lum - lo) / (255 - lo)));
+    d[i] *= k * tr;
+    d[i + 1] *= k * tg;
+    d[i + 2] *= k * tb;
   }
   sctx.putImageData(image, 0, 0);
   const blurred = softBlur(small, w, h);
