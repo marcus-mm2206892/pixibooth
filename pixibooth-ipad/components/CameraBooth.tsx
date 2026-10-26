@@ -164,7 +164,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: live.css }}
               />
-              {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} />}
+              {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} preset={live.gpu} />}
               {live.overlay && (
                 <div
                   className="pointer-events-none absolute inset-0"

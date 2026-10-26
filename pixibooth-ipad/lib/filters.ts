@@ -5,7 +5,8 @@
 
 import type { FilterId } from "./session";
 import { get2d, makeCanvas, mulberry32, releaseCanvas } from "./canvas";
-import { DREAM_FILM, gradePixel, stillRenderer } from "./dreamFilm";
+import type { DreamFilmPreset } from "./dreamFilm";
+import { DREAM_FILM, DREAMY, gradePixel, stillRenderer } from "./dreamFilm";
 
 /** Live-camera approximation (CSS only); the saved photo uses `applyFilter`. */
 export type LivePreview = {
@@ -13,8 +14,8 @@ export type LivePreview = {
   /** Optional CSS background layered over the video. */
   overlay?: string;
   overlayBlend?: "normal" | "soft-light" | "screen" | "multiply";
-  /** Rendered live through the real WebGL pipeline instead of CSS. */
-  gpu?: boolean;
+  /** Rendered live through the real WebGL pipeline (this preset) instead of CSS. */
+  gpu?: DreamFilmPreset;
 };
 
 export type FilterInfo = {
@@ -40,16 +41,24 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
       overlay: "radial-gradient(ellipse at center, rgba(20,16,12,0) 42%, rgba(20,16,12,0.4) 100%)",
     },
   },
+  dreamy: {
+    id: "dreamy",
+    label: "Dreamy",
+    description: "Soft glowing light",
+    // Same WebGL pipeline live and in saved photos, so they always match.
+    live: { css: "none", gpu: DREAMY },
+  },
   dreamfilm: {
     id: "dreamfilm",
     label: "Dream Film",
     description: "Creamy analog glow",
     // The live preview runs the same WebGL pipeline as the saved photo.
-    live: { css: "none", gpu: true },
+    live: { css: "none", gpu: DREAM_FILM },
   },
 };
 
-export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamfilm"];
+// Dream Film (lib/dreamFilm.ts) is kept but not offered right now; add "dreamfilm" back here to show it.
+export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamy"];
 
 type Rgb = [number, number, number];
 
@@ -64,7 +73,8 @@ export function applyFilter(
   seed = 1,
 ): void {
   if (filter === "none") return;
-  if (filter === "dreamfilm") {
+  if (filter === "dreamfilm" || filter === "dreamy") {
+    const preset = filter === "dreamy" ? DREAMY : DREAM_FILM;
     const renderer = stillRenderer();
     if (renderer) {
       const out = renderer.render(ctx.canvas, {
@@ -72,11 +82,12 @@ export function applyFilter(
         outWidth: width,
         outHeight: height,
         seed,
+        preset,
       });
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(out, 0, 0, width, height);
     } else {
-      dreamFilmCpu(ctx, width, height, seed);
+      dreamFilmCpu(ctx, width, height, seed, preset);
     }
     return;
   }
@@ -148,8 +159,7 @@ function vintageDuotone(ctx: CanvasRenderingContext2D, w: number, h: number) {
  * CPU fallback for Dream Film when WebGL is unavailable: same stages and
  * values; blurs use the downscale approximation, so it is close, not identical.
  */
-function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
-  const P = DREAM_FILM;
+function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number, P: DreamFilmPreset) {
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
   const smooth = (e0: number, e1: number, x: number) => {
@@ -167,7 +177,7 @@ function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed:
   const bloom = brightPass(ctx.canvas, w, h);
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  ctx.globalAlpha = P.bloom.opacity;
+  ctx.globalAlpha = P.bloom.enabled ? P.bloom.opacity : 0;
   ctx.drawImage(bloom, 0, 0, w, h);
   ctx.restore();
   releaseCanvas(bloom);
@@ -176,14 +186,15 @@ function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed:
   const o = out.data;
   const rand = mulberry32(seed);
   const edgeW = P.edgeFade.widthFraction * Math.min(w, h);
-  const ec = [0xff, 0xf8, 0xf3];
+  const hex = parseInt(P.edgeFade.color.slice(1), 16);
+  const ec = [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
   const fade = (dist: number) => Math.pow(smooth(0, 1, 1 - Math.min(1, dist / edgeW)), P.edgeFade.falloffPower);
   for (let y = 0; y < h; y++) {
     const ay = fade(Math.min(y, h - 1 - y));
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const n = (rand() + rand() + rand() - 1.5) * 2 * P.grain.luminanceStdDev * 255;
-      const a = P.edgeFade.maxOpacity * (1 - (1 - fade(Math.min(x, w - 1 - x))) * (1 - ay));
+      const n = P.grain.enabled ? (rand() + rand() + rand() - 1.5) * 2 * P.grain.luminanceStdDev * 255 : 0;
+      const a = (P.edgeFade.enabled ? P.edgeFade.maxOpacity : 0) * (1 - (1 - fade(Math.min(x, w - 1 - x))) * (1 - ay));
       for (let k = 0; k < 3; k++) o[i + k] = clamp((o[i + k] + n) * (1 - a) + ec[k] * a);
     }
   }

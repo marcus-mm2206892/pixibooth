@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
+import type { DreamFilmPreset } from "@/lib/dreamFilm";
 import { DreamFilmRenderer } from "@/lib/dreamFilm";
 import { coverCrop } from "@/lib/canvas";
 
@@ -9,11 +10,23 @@ const MAX_WIDTH = 1080;
 const FRAME_MS = 1000 / 30;
 
 /**
- * Draws the camera video through the real Dream Film pipeline, cover-cropped
+ * Draws the camera video through the real GPU filter pipeline (Dreamy or Dream Film), cover-cropped
  * to the frame exactly like the capture. Sits over the <video> element.
  */
-export function DreamFilmLive({ videoRef, mirror }: { videoRef: RefObject<HTMLVideoElement | null>; mirror: boolean }) {
+export function DreamFilmLive({
+  videoRef,
+  mirror,
+  preset,
+}: {
+  videoRef: RefObject<HTMLVideoElement | null>;
+  mirror: boolean;
+  preset: DreamFilmPreset;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const presetRef = useRef(preset);
+  useEffect(() => {
+    presetRef.current = preset;
+  }, [preset]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -38,6 +51,7 @@ export function DreamFilmLive({ videoRef, mirror }: { videoRef: RefObject<HTMLVi
         outWidth,
         outHeight,
         seed: 7, // fixed: grain stays still instead of flickering
+        preset: presetRef.current,
       });
     };
     raf = requestAnimationFrame(loop);
