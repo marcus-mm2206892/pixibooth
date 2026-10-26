@@ -6,7 +6,7 @@
 import type { FilterId } from "./session";
 import { get2d, makeCanvas, mulberry32, releaseCanvas } from "./canvas";
 import type { DreamFilmPreset } from "./dreamFilm";
-import { DREAM_FILM, DREAMY, gradePixel, stillRenderer } from "./dreamFilm";
+import { DREAM_FILM, gradePixel, stillRenderer } from "./dreamFilm";
 
 /** Live-camera approximation (CSS only); the saved photo uses `applyFilter`. */
 export type LivePreview = {
@@ -14,6 +14,8 @@ export type LivePreview = {
   /** Optional CSS background layered over the video. */
   overlay?: string;
   overlayBlend?: "normal" | "soft-light" | "screen" | "multiply";
+  /** Blurred, screened copy of the video for the bloom look. */
+  glow?: boolean;
   /** Rendered live through the real WebGL pipeline (this preset) instead of CSS. */
   gpu?: DreamFilmPreset;
 };
@@ -45,8 +47,11 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
     id: "dreamy",
     label: "Dreamy",
     description: "Soft glowing light",
-    // Same WebGL pipeline live and in saved photos, so they always match.
-    live: { css: "none", gpu: DREAMY },
+    live: {
+      css: "brightness(1.05) contrast(0.92) saturate(0.96)",
+      overlay: "radial-gradient(ellipse at center, rgba(255,240,248,0) 55%, rgba(255,240,248,0.25) 100%)",
+      glow: true,
+    },
   },
   dreamfilm: {
     id: "dreamfilm",
@@ -62,6 +67,20 @@ export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamy"];
 
 type Rgb = [number, number, number];
 
+type Grade = {
+  saturation: number;
+  contrast: number;
+  /** Output black and white points (fade = black above 0). */
+  black: number;
+  white: number;
+  /** Added mostly to dark tones / mostly to bright tones. */
+  shadowTint?: Rgb;
+  highlightTint?: Rgb;
+};
+
+/** Base grade under the Dreamy bloom: lifted blacks, softer contrast, pastel highlights. */
+const DREAMY_GRADE: Grade = { saturation: 0.95, contrast: 0.9, black: 14, white: 255, highlightTint: [8, 3, 10] };
+
 const clamp = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
 /** Applies `filter` in place to the w×h region of `ctx`, starting at 0,0. */
@@ -73,8 +92,21 @@ export function applyFilter(
   seed = 1,
 ): void {
   if (filter === "none") return;
-  if (filter === "dreamfilm" || filter === "dreamy") {
-    const preset = filter === "dreamy" ? DREAMY : DREAM_FILM;
+  if (filter === "dreamy") {
+    // Bloom is computed from the ungraded image so it follows real highlights.
+    const bloom = brightPass(ctx.canvas, width, height);
+    grade(ctx, width, height, DREAMY_GRADE);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.globalAlpha = 0.6;
+    ctx.drawImage(bloom, 0, 0, width, height);
+    ctx.restore();
+    releaseCanvas(bloom);
+    vignette(ctx, width, height, "255, 240, 248", 0.22, 0.55);
+    return;
+  }
+  if (filter === "dreamfilm") {
+    const preset = DREAM_FILM;
     const renderer = stillRenderer();
     if (renderer) {
       const out = renderer.render(ctx.canvas, {
@@ -93,6 +125,36 @@ export function applyFilter(
   }
   vintageDuotone(ctx, width, height);
   vignette(ctx, width, height, "20, 16, 12", 0.42, 0.42);
+}
+
+function grade(ctx: CanvasRenderingContext2D, w: number, h: number, g: Grade) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const range = (g.white - g.black) / 255;
+  const st = g.shadowTint ?? [0, 0, 0];
+  const ht = g.highlightTint ?? [0, 0, 0];
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i];
+    let gr = d[i + 1];
+    let b = d[i + 2];
+    const lum = 0.299 * r + 0.587 * gr + 0.114 * b;
+    r = lum + (r - lum) * g.saturation;
+    gr = lum + (gr - lum) * g.saturation;
+    b = lum + (b - lum) * g.saturation;
+    r = (r - 128) * g.contrast + 128;
+    gr = (gr - 128) * g.contrast + 128;
+    b = (b - 128) * g.contrast + 128;
+    const t = lum / 255;
+    const sw = (1 - t) * (1 - t);
+    const hw = t * t;
+    r += st[0] * sw + ht[0] * hw;
+    gr += st[1] * sw + ht[1] * hw;
+    b += st[2] * sw + ht[2] * hw;
+    d[i] = clamp(g.black + clamp(r) * range);
+    d[i + 1] = clamp(g.black + clamp(gr) * range);
+    d[i + 2] = clamp(g.black + clamp(b) * range);
+  }
+  ctx.putImageData(image, 0, 0);
 }
 
 // ── Vintage Film: a port of the team's Canva recipe ─────────────────────────

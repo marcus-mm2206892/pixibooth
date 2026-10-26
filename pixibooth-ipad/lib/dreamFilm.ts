@@ -90,58 +90,6 @@ export const DREAM_FILM = {
 
 export type DreamFilmPreset = typeof DREAM_FILM;
 
-/**
- * Dreamy: the same pipeline as Dream Film with its own values, so the live
- * camera, the style-screen preview and saved photos are pixel-identical.
- * Warm, saturated peach-pink colors with a soft highlight glow and a faint
- * warm-white edge.
- */
-export const DREAMY: DreamFilmPreset = {
-  ...DREAM_FILM,
-  name: "Dreamy",
-
-  exposureEV: 0.05,
-  contrast: 0.95,
-  saturation: 1.1,
-  gamma: 1.0,
-  blackLift: 0.035,
-
-  temperatureShift: 0.035,
-  tintShift: 0.01,
-  redGain: 1.03,
-  greenGain: 1.0,
-  blueGain: 0.97,
-
-  highlightCompression: 0.06,
-  highlightWarmth: 0.07, // warm orange-peach nostalgia
-  shadowBlueTint: -0.02, // negative = amber shadows
-
-  skinTones: {
-    enabled: true,
-    luminanceLift: 0.015,
-    saturationSoftness: 0,
-    hueShiftDegrees: 4,
-    peachBoost: 0.18,
-    pinkBoost: 0.14,
-    redOrangeBalance: 0.05,
-  },
-  blushAndLips: {
-    enabled: true,
-    cheekPinkBoost: 0.28,
-    cheekPeachBoost: 0.14,
-    cheekLuminanceLift: 0,
-    lipRedBoost: 0.3,
-    lipPinkBoost: 0.14,
-    lipSaturationBoost: 0.3,
-    lipLuminanceLift: 0,
-  },
-
-  softFocus: { enabled: true, gaussianSigma: 1.6, blurMix: 0.2 },
-  bloom: { enabled: true, threshold: 0.62, softKnee: 0.18, blurSigma: 28, opacity: 0.42, blendMode: "screen" },
-  grain: { enabled: false, luminanceStdDev: 0, chromaStdDev: 0, monochromeMix: 1 },
-  edgeFade: { enabled: true, color: "#FFF4EE", widthFraction: 0.09, maxOpacity: 0.16, falloffPower: 1.5 },
-};
-
 /** Sigmas in the preset are defined at this shorter-side size. */
 const REFERENCE_SHORT_SIDE = 1024;
 /** Bloom is extracted and blurred at 1/BLOOM_DOWNSCALE resolution (it is very soft anyway). */

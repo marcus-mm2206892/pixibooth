@@ -29,6 +29,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror } = state;
   const { photos, filter, poses } = session;
   const videoRef = useRef<HTMLVideoElement>(null);
+  const glowRef = useRef<HTMLVideoElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const starRef = useRef<HTMLSpanElement>(null);
@@ -49,11 +50,12 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   }, [engine]);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.srcObject !== stream) video.srcObject = stream;
-    if (stream) video.play().catch(() => {});
-  }, [stream]);
+    for (const video of [videoRef.current, glowRef.current]) {
+      if (!video) continue;
+      if (video.srcObject !== stream) video.srcObject = stream;
+      if (stream) video.play().catch(() => {});
+    }
+  }, [stream, filter]);
 
   useEffect(() => {
     if (state.flashCount === lastFlash.current) return;
@@ -165,6 +167,17 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: live.css }}
               />
               {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} preset={live.gpu} />}
+              {live.glow && (
+                <video
+                  ref={glowRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-screen"
+                  style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: `${live.css} brightness(1.15) blur(16px)` }}
+                />
+              )}
               {live.overlay && (
                 <div
                   className="pointer-events-none absolute inset-0"
