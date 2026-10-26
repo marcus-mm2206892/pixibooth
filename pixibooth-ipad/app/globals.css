@@ -16,6 +16,9 @@
   --pp-navy: #0a2d69;
   --pp-ink: #0a2d69;
   --pp-focus: #0a2d69;
+  /* Retake only: the one red action in the booth. */
+  --pp-red: #d62828;
+  --pp-red-dark: #8f1717;
   --background: var(--pp-white);
   --foreground: var(--pp-ink);
   color-scheme: light;
@@ -32,6 +35,7 @@
   --color-pp-blue-line: var(--pp-blue-line);
   --color-pp-navy: var(--pp-navy);
   --color-pp-ink: var(--pp-ink);
+  --color-pp-red: var(--pp-red);
   /* DotGothic16 is the main typeface; Barlow Condensed is only for small labels. */
   --font-sans: var(--font-dotgothic);
   --font-mono: var(--font-geist-mono);
@@ -260,6 +264,12 @@ body {
   --btn-ink: var(--pp-white);
   --btn-shadow: var(--pp-blue);
 }
+.px-btn[data-variant="danger"] {
+  --btn-fill: var(--pp-red);
+  --btn-edge: var(--pp-red-dark);
+  --btn-ink: var(--pp-white);
+  --btn-shadow: var(--pp-red-dark);
+}
 .px-btn[data-variant="ghost"],
 .px-btn[data-variant="ghost-inverse"] {
   --btn-fill: transparent;
@@ -340,6 +350,39 @@ body {
   animation: arcade-blink 0.9s infinite;
 }
 
+/* Selected swatch/card: the item's own navy outline blinks to white, same hard rhythm. */
+@keyframes ring-blink {
+  0%,
+  49% {
+    box-shadow: 0 0 0 3px var(--pp-navy);
+  }
+  50%,
+  100% {
+    box-shadow: 0 0 0 3px var(--pp-white);
+  }
+}
+
+.animate-ring-blink {
+  box-shadow: 0 0 0 3px var(--pp-navy);
+  animation: ring-blink 0.9s infinite;
+}
+
+/* For PixelFrame edges, which are a background layer rather than a border. */
+@keyframes edge-blink {
+  0%,
+  49% {
+    background-color: var(--pp-navy);
+  }
+  50%,
+  100% {
+    background-color: var(--pp-white);
+  }
+}
+
+.animate-edge-blink {
+  animation: edge-blink 0.9s infinite;
+}
+
 /* Button labels: same hard rhythm, but dims instead of vanishing so the button never looks empty. */
 @keyframes arcade-pulse {
   0%,
@@ -364,7 +407,9 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-arcade,
-  .animate-arcade-soft {
+  .animate-arcade-soft,
+  .animate-ring-blink,
+  .animate-edge-blink {
     animation: none;
   }
   .animate-px-blink {

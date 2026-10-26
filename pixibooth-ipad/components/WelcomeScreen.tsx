@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { ArrowRight } from "pixelarticons/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowRight, Reload } from "pixelarticons/react";
+import type { CameraErrorKind } from "@/lib/camera";
+import { ERROR_COPY } from "@/lib/cameraErrors";
 import { riseIn } from "@/lib/motion";
 import { enterFullscreen } from "@/lib/fullscreen";
 import { PhotostripPreview } from "./PhotostripPreview";
@@ -9,9 +11,23 @@ import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
-export function WelcomeScreen({ onStart }: { onStart: () => void }) {
+export function WelcomeScreen({
+  onStart,
+  checkCameraAccess,
+}: {
+  onStart: () => void;
+  checkCameraAccess: () => Promise<CameraErrorKind | null>;
+}) {
   const root = useEnterAnimation<HTMLDivElement>();
   const strip = useRef<HTMLDivElement>(null);
+  // The camera prompt happens here, before Start goes full screen, so it never interrupts it.
+  const [access, setAccess] = useState<"checking" | "allowed" | CameraErrorKind>("checking");
+
+  const check = useCallback(() => {
+    void checkCameraAccess().then((error) => setAccess(error ?? "allowed"));
+  }, [checkCameraAccess]);
+
+  useEffect(check, [check]);
 
   useEffect(() => {
     const a = riseIn(strip.current, 250);
@@ -27,7 +43,8 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <h1 data-enter className="font-pixel text-[clamp(3.5rem,10vw,8rem)] leading-none text-pp-navy">
             PIXIBOOTH
           </h1>
-          <div data-enter>
+          {/* Start (and full screen) only appear once the camera is allowed. */}
+          {access === "allowed" ? (
             <Button
               size="xl"
               onClick={() => {
@@ -38,7 +55,28 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
               <span className="animate-arcade-soft">Start photo session</span>
               <ArrowRight className="size-8" aria-hidden />
             </Button>
-          </div>
+          ) : access === "checking" ? (
+            <p className="font-pixel text-sm text-pp-navy" role="status">
+              CHECKING CAMERA… TAP ALLOW IF ASKED
+            </p>
+          ) : (
+            <div className="flex max-w-md flex-col items-center gap-3 landscape:items-start" role="status">
+              <p className="text-sm text-pp-ink/80">
+                <strong className="text-pp-navy">{ERROR_COPY[access].title}.</strong> {ERROR_COPY[access].body}
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setAccess("checking");
+                  check();
+                }}
+              >
+                <Reload className="size-4" aria-hidden />
+                Try again
+              </Button>
+            </div>
+          )}
         </section>
 
         <section data-enter className="relative min-h-0">

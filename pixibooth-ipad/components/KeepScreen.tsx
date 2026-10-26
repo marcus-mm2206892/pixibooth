@@ -85,9 +85,14 @@ export function KeepScreen({
             {/* Pick a single photo, then confirm with one button. */}
             <div className="flex min-h-0 flex-col gap-3">
               <p className="text-base leading-snug text-pp-ink">
-                {retakesLeft > 0
-                  ? "Not happy with a photo? Tap the one you want to redo, then press Retake."
-                  : "All four photos are kept. Looking good!"}
+                {retakesLeft > 0 ? (
+                  <>
+                    Not happy with a photo? Tap the one you want to redo, then press{" "}
+                    <strong className="text-pp-red">Retake</strong>.
+                  </>
+                ) : (
+                  "All four photos are kept. Looking good!"
+                )}
               </p>
               <div className="fit-box flex flex-1 items-start justify-center">
                 <div role="radiogroup" aria-label="Choose one photo to retake" className="fit-slot grid grid-cols-2 grid-rows-2 gap-3">
@@ -104,20 +109,20 @@ export function KeepScreen({
                         disabled={retakesLeft === 0}
                         onClick={() => setSelected(chosen ? null : i)}
                         className={`relative min-h-0 border-[3px] transition-opacity disabled:cursor-not-allowed focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-pp-navy ${
-                          chosen ? "border-pp-blue" : selected !== null ? "border-pp-navy opacity-55" : "border-pp-navy"
+                          chosen ? "border-pp-red" : selected !== null ? "border-pp-navy opacity-55" : "border-pp-navy"
                         }`}
                       >
                         <span className="block h-full w-full overflow-hidden">
                           <FilteredPhoto photo={photo} filter={session.filter} width={360} alt="" />
                         </span>
                         {chosen && (
-                          <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 border-4 border-pp-blue" />
+                          <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 border-4 border-pp-red" />
                         )}
                         <span className="absolute left-0 top-0 bg-pp-navy px-2 py-0.5 font-pixel text-sm text-white">
                           {pad2(i + 1)}
                         </span>
                         {chosen && (
-                          <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-pp-blue/90 py-1.5 font-pixel text-sm text-white">
+                          <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-pp-red/90 py-1.5 font-pixel text-sm text-white">
                             <Undo className="size-4" aria-hidden />
                             RETAKE THIS ONE
                           </span>
@@ -135,6 +140,7 @@ export function KeepScreen({
               </div>
               {retakesLeft > 0 && (
                 <Button
+                  variant="danger"
                   size="lg"
                   className="w-full"
                   disabled={selected === null}

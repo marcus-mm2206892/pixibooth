@@ -177,9 +177,10 @@ export class BoothEngine {
     void this.startPreview();
   }
 
+  /** Only proceeds once the camera is live, so customers can't continue without camera permission. */
   showCamera() {
-    if (isCapturePhase(this.state.phase)) return;
-    this.patch({ phase: this.camera.isLive() ? "camera-ready" : "camera-setup", error: null });
+    if (isCapturePhase(this.state.phase) || !this.camera.isLive()) return;
+    this.patch({ phase: "camera-ready", error: null });
   }
 
   setTemplate(template: TemplateColor) {
@@ -206,6 +207,27 @@ export class BoothEngine {
 
   attachPreview(video: HTMLVideoElement | null) {
     this.camera.attachPreview?.(video);
+  }
+
+  /**
+   * Asks for camera permission from the welcome screen, so the browser prompt
+   * appears before the session goes full screen. Returns the error, or null when allowed.
+   */
+  async checkCameraAccess(): Promise<CameraErrorKind | null> {
+    if (this.camera.isLive()) return null;
+    try {
+      const status = await navigator.permissions?.query({ name: "camera" as PermissionName });
+      if (status?.state === "granted") return null;
+    } catch {
+      // Permissions API missing or doesn't know "camera": fall through and ask directly.
+    }
+    try {
+      await this.camera.start(this.state.facing);
+      this.camera.stop();
+      return null;
+    } catch (err) {
+      return toCameraError(err).kind;
+    }
   }
 
   /** Starts (or restarts) the camera and moves to the camera screen. */

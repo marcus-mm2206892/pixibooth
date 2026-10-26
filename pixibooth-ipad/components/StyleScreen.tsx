@@ -1,11 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Camera, Reload } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import type { FilterId } from "@/lib/session";
-import { ticketNumber } from "@/lib/session";
+import { TIMING, ticketNumber } from "@/lib/session";
 import type { PhotoSource } from "@/lib/photos";
 import { FILTERS, FILTER_ORDER } from "@/lib/filters";
 import { SLOT_ASPECT, TEMPLATES, TEMPLATE_ORDER, renderStrip } from "@/lib/photostrip";
@@ -128,8 +128,23 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
   const liveNow = cameraStatus === "live" && !!stream;
   const errorCopy = error ? ERROR_COPY[error] : null;
 
+  // Time limit: when it runs out, continue with whatever is selected (as soon as the camera is live).
+  const [timeUp, setTimeUp] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setTimeUp(true), TIMING.styleSelectMs);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    if (timeUp && liveNow) engine.showCamera();
+  }, [timeUp, liveNow, engine]);
+
   return (
-    <KioskShell rootRef={root} step={1} ticket={ticketNumber(session)}>
+    <KioskShell
+      rootRef={root}
+      step={1}
+      ticket={ticketNumber(session)}
+      timer={{ ms: TIMING.styleSelectMs, runKey: session.createdAt }}
+    >
       <div className="style-layout min-h-0 flex-1">
         {/* Live preview of the finished strip: the full height of the screen. */}
         <section data-enter style={{ gridArea: "preview" }} className="flex min-h-0 flex-col gap-2" aria-label="Strip preview">
@@ -205,16 +220,11 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     bump(cards.current[t]);
                   }}
                   className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl short:size-14 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
-                    selected ? "ring-[3px] ring-pp-navy" : "ring-1 ring-pp-navy/20"
+                    selected ? "animate-ring-blink" : "ring-1 ring-pp-navy/20"
                   }`}
                   style={{ background: style.background }}
                 >
-                  {selected && (
-                    <>
-                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 rounded-2xl border-4 border-pp-blue" />
-                      <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />
-                    </>
-                  )}
+                  {selected && <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />}
                 </button>
               );
             })}
@@ -247,11 +257,8 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     }}
                     className="relative text-left focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
                   >
-                    {selected && (
-                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-1.5 z-10 border-4 border-pp-blue" />
-                    )}
                     <PixelFrame
-                      edge={selected ? "bg-pp-navy" : "bg-pp-blue-line"}
+                      edge={selected ? "bg-pp-navy animate-edge-blink" : "bg-pp-blue-line"}
                       fill={selected ? "bg-pp-blue-soft" : "bg-white"}
                       border={selected ? 4 : 2}
                       innerClassName="flex items-center gap-3 p-2.5 landscape:flex-col landscape:items-stretch landscape:gap-2"
@@ -282,10 +289,21 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
         </section>
 
         <div data-enter style={{ gridArea: "cta" }} className="flex flex-wrap items-center justify-between gap-4">
-          <p className="font-pixel text-sm text-pp-navy portrait:hidden">
-            {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
-          </p>
-          <Button size="xl" className="portrait:w-full" onClick={() => engine.showCamera()}>
+          {liveNow ? (
+            <p className="font-pixel text-sm text-pp-navy portrait:hidden">
+              {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
+            </p>
+          ) : (
+            <p className="max-w-md text-sm text-pp-ink/80 portrait:w-full portrait:text-center" role="status">
+              {errorCopy ? errorCopy.body : "Allow camera access to continue."}
+            </p>
+          )}
+          <Button
+            size="xl"
+            className="portrait:w-full"
+            disabled={!liveNow}
+            onClick={() => engine.showCamera()}
+          >
             <Camera className="size-8" aria-hidden />
             Continue to camera
           </Button>

@@ -12,7 +12,7 @@ import {
 import { enterStagger, popIn } from "@/lib/motion";
 import { PixelStar } from "./PixelStar";
 
-type Variant = "primary" | "secondary" | "inverse" | "outline-inverse" | "ghost" | "ghost-inverse";
+type Variant = "primary" | "danger" | "secondary" | "inverse" | "outline-inverse" | "ghost" | "ghost-inverse";
 type Size = "sm" | "md" | "lg" | "xl";
 
 const SIZES: Record<Size, string> = {

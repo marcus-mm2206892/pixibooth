@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import {
-  ArrowLeft,
-  Camera,
-  FlipHorizontal2,
-  Pause,
-  Play,
-  Reload,
-  Repeat,
-} from "pixelarticons/react";
+import { Camera, FlipHorizontal2, Pause, Play, Reload } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import { isCapturePhase } from "@/lib/boothEngine";
 import { ERROR_COPY } from "@/lib/cameraErrors";
@@ -22,7 +14,7 @@ import { DreamFilmLive } from "./DreamFilmLive";
 import { DREAM_FILM } from "@/lib/dreamFilm";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
+import { Button, Jp, PixelFrame, PixelTag } from "./ui";
 
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -36,11 +28,9 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const starRef = useRef<HTMLSpanElement>(null);
   const lastFlash = useRef(state.flashCount);
   const [playingStream, setPlayingStream] = useState<MediaStream | null>(null);
-  const [confirmCancel, setConfirmCancel] = useState(false);
 
   const capturing = isCapturePhase(phase);
   const videoReady = !!stream && playingStream === stream;
-  const taken = photos.filter(Boolean).length;
   const isRetake = mode === "retake" && retakeSlot !== null;
   const idle = phase === "camera-ready" || phase === "camera-setup";
   const live = FILTERS[filter].live;
@@ -69,21 +59,13 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
     popIn(badgeRef.current, 1.4);
   }, [countdown]);
 
-  // ── back / cancel routing ──
-  const canGoBack = !isRetake && taken === 0 && !capturing && phase !== "paused";
-  const requestCancel = () => {
-    if (isRetake) {
-      engine.cancelRetake();
-      return;
-    }
-    if (canGoBack) {
-      engine.showStyle();
-      return;
-    }
-    engine.pause("user");
-    setConfirmCancel(true);
-  };
-  const backLabel = isRetake ? "Back to strip" : canGoBack ? "Back" : "Cancel session";
+  // No way back from here: "get ready" has a time limit, then the shots start on their own.
+  const autoStart = phase === "camera-ready" && videoReady;
+  useEffect(() => {
+    if (!autoStart) return;
+    const timer = window.setTimeout(() => engine.startCapture(), TIMING.getReadyMs);
+    return () => window.clearTimeout(timer);
+  }, [autoStart, engine]);
 
   // Slot whose pose is shown: the one counting down, or the next during a break.
   const poseSlot = capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos);
@@ -124,33 +106,26 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const errorCopy = state.error ? ERROR_COPY[state.error] : ERROR_COPY.unknown;
 
   return (
-    <KioskShell step={2} tone="navy" bodyClassName="pt-3!">
+    <KioskShell
+      step={2}
+      tone="navy"
+      bodyClassName="pt-3!"
+      timer={{ ms: TIMING.getReadyMs, runKey: autoStart ? `${mode}-${retakeSlot}` : null }}
+    >
       {/* Landscape: preview fills the left; toolbar + status column on the right.
           Portrait: toolbar, preview, then status stacked. */}
       <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 landscape:grid-cols-[minmax(0,1fr)_min(30%,340px)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 landscape:col-start-2 landscape:row-start-1">
-        <Button variant="ghost-inverse" size="md" onClick={requestCancel} faceClassName="px-2!">
-          <ArrowLeft className="size-5" aria-hidden />
-          {backLabel}
-        </Button>
+      <div className="flex flex-wrap items-center justify-end gap-3 landscape:col-start-2 landscape:row-start-1">
         {phase === "camera-ready" && (
-          <div className="flex flex-wrap gap-3">
-            <Button
-              variant={mirror ? "inverse" : "outline-inverse"}
-              size="sm"
-              aria-pressed={mirror}
-              onClick={() => engine.toggleMirror()}
-            >
-              <FlipHorizontal2 className="size-5" aria-hidden />
-              Mirror
-            </Button>
-            {state.cameraCount > 1 && (
-              <Button variant="outline-inverse" size="sm" aria-label="Switch camera" onClick={() => engine.flipCamera()}>
-                <Repeat className="size-5" aria-hidden />
-                Switch
-              </Button>
-            )}
-          </div>
+          <Button
+            variant={mirror ? "inverse" : "outline-inverse"}
+            size="sm"
+            aria-pressed={mirror}
+            onClick={() => engine.toggleMirror()}
+          >
+            <FlipHorizontal2 className="size-5" aria-hidden />
+            Mirror
+          </Button>
         )}
       </div>
 
@@ -353,15 +328,8 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
           />
 
           {idle && (
-            <p className="col-span-2 flex items-center justify-between gap-2 font-pixel text-xs tracking-widest text-white/75">
-              <span>FILTER: {FILTERS[filter].label.toUpperCase()}</span>
-              <button
-                type="button"
-                className="min-h-11 px-2 underline decoration-2 underline-offset-4"
-                onClick={() => engine.showStyle()}
-              >
-                CHANGE
-              </button>
+            <p className="col-span-2 font-pixel text-xs tracking-widest text-white/75">
+              FILTER: {FILTERS[filter].label.toUpperCase()}
             </p>
           )}
 
@@ -381,25 +349,6 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
         </aside>
       </div>
 
-      <ConfirmDialog
-        open={confirmCancel}
-        title="Start over?"
-        body={
-          taken > 0
-            ? `This deletes the ${taken} photo${taken === 1 ? "" : "s"} taken so far.`
-            : "This ends the current session."
-        }
-        confirmLabel="Discard & start over"
-        cancelLabel="Keep going"
-        onCancel={() => {
-          setConfirmCancel(false);
-          engine.resume();
-        }}
-        onConfirm={() => {
-          setConfirmCancel(false);
-          engine.newSession();
-        }}
-      />
     </KioskShell>
   );
 }

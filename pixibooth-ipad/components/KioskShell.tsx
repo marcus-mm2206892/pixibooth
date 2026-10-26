@@ -46,6 +46,7 @@ export function KioskShell({
   children,
   rootRef,
   bodyClassName = "",
+  timer,
 }: {
   step?: 1 | 2 | 3;
   tone?: "white" | "navy";
@@ -54,6 +55,8 @@ export function KioskShell({
   children: ReactNode;
   rootRef?: RefObject<HTMLDivElement | null>;
   bodyClassName?: string;
+  /** Time-limit bar under the header. `runKey` null shows an empty track; a new key restarts it. */
+  timer?: { ms: number; runKey: string | number | null };
 }) {
   return (
     <div ref={rootRef} className={`kiosk ${tone === "navy" ? "bg-pp-navy text-white" : "bg-white text-pp-ink"}`}>
@@ -75,6 +78,18 @@ export function KioskShell({
           <Jp>フォトブース</Jp> / 4-CUT
         </span>
       </header>
+
+      {timer && (
+        <div className={`h-3 shrink-0 ${tone === "navy" ? "bg-white/15" : "bg-pp-blue-light"}`} aria-hidden>
+          {timer.runKey !== null && (
+            <div
+              key={timer.runKey}
+              className={`animate-drain h-full ${tone === "navy" ? "bg-white" : "bg-pp-blue"}`}
+              style={{ animationDuration: `${timer.ms}ms` }}
+            />
+          )}
+        </div>
+      )}
 
       <main className={`kiosk-body ${ticket ? "pb-3! short:pb-[max(env(safe-area-inset-bottom),10px)]!" : ""} ${bodyClassName}`}>{children}</main>
 

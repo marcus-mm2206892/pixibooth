@@ -50,6 +50,10 @@ export const TIMING = {
   poseBreakMs: 2000,
   /** Short settle after the final/retake exposure so the flash and thumbnail are seen. */
   finishHoldMs: 700,
+  /** Style screen time limit; then it continues to the camera with the current picks. */
+  styleSelectMs: 60_000,
+  /** "Get ready to pose" time limit; then the shots start on their own. */
+  getReadyMs: 30_000,
 };
 
 export type BoothSettings = {
