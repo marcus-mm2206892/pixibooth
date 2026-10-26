@@ -3,9 +3,9 @@
 // preview and for captured photos/strips, so both use identical math.
 //
 // Pipeline (all sigmas are px at 1280 px image width, scaled to the output size):
-//   1 grade  →  2 optical diffusion (σ2 gaussian, screen 10%)  →  3 bloom
+//   1 grade  →  2 optical diffusion (σ5 gaussian, screen 30%)  →  3 bloom
 //   (soft-knee threshold on the graded image, blurred at ¼ res, warm-white tint,
-//   screen 22.5%)  →  4 grain (stable per seed)  →  5 faint edge haze
+//   ×4, screen 50%)  →  4 grain (stable per seed)  →  5 faint edge haze
 
 export const DREAM_FILM = {
   name: "Dream Film",
@@ -40,26 +40,44 @@ export const DREAM_FILM = {
   },
 
   // SOFT OPTICAL DIFFUSION: a lightly blurred copy screened over the untouched image.
-  softFocus: { enabled: true, gaussianSigma: 2, opacity: 0.1, blendMode: "screen" },
+  softFocus: {
+    enabled: true,
+    gaussianSigma: 5,
+    opacity: 0.3,
+    blendMode: "screen",
+  },
 
-  // HIGHLIGHT BLOOM: only bright skin/whites glow (early-2000s flash scatter);
-  // hair, shadows and features stay below the threshold.
+  // HIGHLIGHT BLOOM: bright skin/whites glow and bleed outward (early-2000s flash
+  // scatter); hair, shadows and features stay below the threshold. `intensity`
+  // scales the extracted highlights so the glow can actually reach white.
   bloom: {
     enabled: true,
-    threshold: 0.78,
-    softKnee: 0.12,
-    blurSigma: 16,
-    opacity: 0.225,
+    threshold: 0.55,
+    softKnee: 0.25,
+    blurSigma: 32,
+    intensity: 4,
+    opacity: 0.4,
     tint: "#FFF3E4",
     blendMode: "screen",
   },
 
   // ANALOG FILM GRAIN
-  grain: { enabled: true, luminanceStdDev: 0.012, chromaStdDev: 0.004, monochromeMix: 0.85 },
+  grain: {
+    enabled: true,
+    luminanceStdDev: 0.012,
+    chromaStdDev: 0.004,
+    monochromeMix: 0.85,
+  },
 
   // SOFT FADED PHOTOGRAPHIC EDGES: barely-there haze (was 0.68 opacity, ~82% less);
   // the strongest edge wins rather than stacking, so corners stay clear.
-  edgeFade: { enabled: true, color: "#FFFBF7", widthFraction: 0.1, maxOpacity: 0.12, falloffPower: 2 },
+  edgeFade: {
+    enabled: true,
+    color: "#FFFBF7",
+    widthFraction: 0.1,
+    maxOpacity: 0.12,
+    falloffPower: 2,
+  },
 
   // OTHER
   vignette: 0,
@@ -188,7 +206,7 @@ void main() {
 /** Stage 3a: soft-knee highlight extraction. */
 const BRIGHT_FRAG = `${PRECISION}
 uniform sampler2D u_tex;
-uniform float u_threshold, u_knee;
+uniform float u_threshold, u_knee, u_intensity;
 
 void main() {
   vec3 c = texture2D(u_tex, v_uv).rgb;
@@ -196,7 +214,7 @@ void main() {
   float soft = clamp(br - u_threshold + u_knee, 0.0, 2.0 * u_knee);
   soft = soft * soft / (4.0 * u_knee + 1e-5);
   float contribution = max(soft, br - u_threshold) / max(br, 1e-5);
-  gl_FragColor = vec4(c * contribution, 1.0);
+  gl_FragColor = vec4(c * contribution * u_intensity, 1.0);
 }`;
 
 /** Stages 3b–5: screen-blend bloom, grain, faded edges. */
@@ -248,9 +266,24 @@ void main() {
 
 // ── renderer ─────────────────────────────────────────────────────────────────
 
-type Target = { tex: WebGLTexture; fbo: WebGLFramebuffer; w: number; h: number };
-type Targets = { grade: Target; tmp: Target; soft: Target; bright: Target; tmpQ: Target; bloom: Target };
-type Program = { prog: WebGLProgram; loc: (name: string) => WebGLUniformLocation | null };
+type Target = {
+  tex: WebGLTexture;
+  fbo: WebGLFramebuffer;
+  w: number;
+  h: number;
+};
+type Targets = {
+  grade: Target;
+  tmp: Target;
+  soft: Target;
+  bright: Target;
+  tmpQ: Target;
+  bloom: Target;
+};
+type Program = {
+  prog: WebGLProgram;
+  loc: (name: string) => WebGLUniformLocation | null;
+};
 
 /**
  * Renders Dream Film into its own canvas. Use one instance per output canvas
@@ -259,15 +292,26 @@ type Program = { prog: WebGLProgram; loc: (name: string) => WebGLUniformLocation
 export class DreamFilmRenderer {
   readonly canvas: HTMLCanvasElement;
   private gl: WebGLRenderingContext;
-  private programs: { grade: Program; blur: Program; bright: Program; final: Program };
+  private programs: {
+    grade: Program;
+    blur: Program;
+    bright: Program;
+    final: Program;
+  };
   private quad: WebGLBuffer;
   private srcTex: WebGLTexture;
   private targets = new Map<string, Targets>();
   lost = false;
 
   /** Returns null if WebGL is unavailable. */
-  static create(canvas: HTMLCanvasElement = document.createElement("canvas")): DreamFilmRenderer | null {
-    const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true, premultipliedAlpha: false, antialias: false });
+  static create(
+    canvas: HTMLCanvasElement = document.createElement("canvas"),
+  ): DreamFilmRenderer | null {
+    const gl = canvas.getContext("webgl", {
+      preserveDrawingBuffer: true,
+      premultipliedAlpha: false,
+      antialias: false,
+    });
     if (!gl) return null;
     try {
       return new DreamFilmRenderer(canvas, gl);
@@ -289,7 +333,11 @@ export class DreamFilmRenderer {
     };
     this.quad = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+      gl.STATIC_DRAW,
+    );
     this.srcTex = this.texture();
   }
 
@@ -299,7 +347,8 @@ export class DreamFilmRenderer {
       const s = gl.createShader(type)!;
       gl.shaderSource(s, src);
       gl.compileShader(s);
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) ?? "shader error");
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS))
+        throw new Error(gl.getShaderInfoLog(s) ?? "shader error");
       return s;
     };
     const prog = gl.createProgram()!;
@@ -307,12 +356,14 @@ export class DreamFilmRenderer {
     gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, frag));
     gl.bindAttribLocation(prog, 0, "a_pos");
     gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? "link error");
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS))
+      throw new Error(gl.getProgramInfoLog(prog) ?? "link error");
     const cache = new Map<string, WebGLUniformLocation | null>();
     return {
       prog,
       loc: (name) => {
-        if (!cache.has(name)) cache.set(name, gl.getUniformLocation(prog, name));
+        if (!cache.has(name))
+          cache.set(name, gl.getUniformLocation(prog, name));
         return cache.get(name)!;
       },
     };
@@ -332,10 +383,26 @@ export class DreamFilmRenderer {
   private target(w: number, h: number): Target {
     const gl = this.gl;
     const tex = this.texture();
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      w,
+      h,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      null,
+    );
     const fbo = gl.createFramebuffer()!;
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      tex,
+      0,
+    );
     return { tex, fbo, w, h };
   }
 
@@ -367,7 +434,14 @@ export class DreamFilmRenderer {
     return t;
   }
 
-  private pass(program: Program, out: Target | null, w: number, h: number, textures: WebGLTexture[], uniforms: () => void) {
+  private pass(
+    program: Program,
+    out: Target | null,
+    w: number,
+    h: number,
+    textures: WebGLTexture[],
+    uniforms: () => void,
+  ) {
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, out ? out.fbo : null);
     gl.viewport(0, 0, w, h);
@@ -384,7 +458,10 @@ export class DreamFilmRenderer {
   }
 
   /** Renders `source` through Dream Film into `this.canvas` (resized to the output size). */
-  render(source: TexImageSource & { width?: number; height?: number }, opts: DreamFilmRenderOptions): HTMLCanvasElement {
+  render(
+    source: TexImageSource & { width?: number; height?: number },
+    opts: DreamFilmRenderOptions,
+  ): HTMLCanvasElement {
     const gl = this.gl;
     const P = opts.preset ?? DREAM_FILM;
     const W = Math.max(1, Math.round(opts.outWidth));
@@ -392,8 +469,12 @@ export class DreamFilmRenderer {
     if (this.canvas.width !== W) this.canvas.width = W;
     if (this.canvas.height !== H) this.canvas.height = H;
 
-    const srcW = (source as HTMLVideoElement).videoWidth || (source as { width: number }).width;
-    const srcH = (source as HTMLVideoElement).videoHeight || (source as { height: number }).height;
+    const srcW =
+      (source as HTMLVideoElement).videoWidth ||
+      (source as { width: number }).width;
+    const srcH =
+      (source as HTMLVideoElement).videoHeight ||
+      (source as { height: number }).height;
     const crop = opts.crop ?? { sx: 0, sy: 0, sw: srcW, sh: srcH };
 
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -426,7 +507,13 @@ export class DreamFilmRenderer {
       gl.uniform1f(grade.loc("u_hiWarmth"), P.highlightWarmth);
       gl.uniform1f(grade.loc("u_shadowBlue"), P.shadowBlueTint);
       const lip = P.lipColor;
-      gl.uniform4f(grade.loc("u_lip"), lip.hueCenter / 360, lip.hueWidth / 360, lip.minSaturation, lip.enabled ? lip.saturationBoost : 0);
+      gl.uniform4f(
+        grade.loc("u_lip"),
+        lip.hueCenter / 360,
+        lip.hueWidth / 360,
+        lip.minSaturation,
+        lip.enabled ? lip.saturationBoost : 0,
+      );
       gl.uniform1f(grade.loc("u_lipDepth"), lip.enabled ? lip.depth : 0);
     });
 
@@ -459,6 +546,7 @@ export class DreamFilmRenderer {
       gl.uniform1i(bright.loc("u_tex"), 0);
       gl.uniform1f(bright.loc("u_threshold"), P.bloom.threshold);
       gl.uniform1f(bright.loc("u_knee"), P.bloom.softKnee);
+      gl.uniform1f(bright.loc("u_intensity"), P.bloom.intensity);
     });
     const bloomSigma = (P.bloom.blurSigma * k) / BLOOM_DOWNSCALE;
     blurPass(t.bright, t.bright, t.tmpQ, [1, 0], bloomSigma, 1);
@@ -472,14 +560,26 @@ export class DreamFilmRenderer {
       gl.uniform1i(final.loc("u_bloom"), 1);
       gl.uniform2f(final.loc("u_size"), W, H);
       gl.uniform1f(final.loc("u_seed"), (opts.seed ?? 1) % 997);
-      gl.uniform1f(final.loc("u_bloomOpacity"), P.bloom.enabled ? P.bloom.opacity : 0);
+      gl.uniform1f(
+        final.loc("u_bloomOpacity"),
+        P.bloom.enabled ? P.bloom.opacity : 0,
+      );
       gl.uniform3f(final.loc("u_bloomTint"), tint[0], tint[1], tint[2]);
-      gl.uniform1f(final.loc("u_lumStd"), P.grain.enabled ? P.grain.luminanceStdDev : 0);
-      gl.uniform1f(final.loc("u_chromaStd"), P.grain.enabled ? P.grain.chromaStdDev : 0);
+      gl.uniform1f(
+        final.loc("u_lumStd"),
+        P.grain.enabled ? P.grain.luminanceStdDev : 0,
+      );
+      gl.uniform1f(
+        final.loc("u_chromaStd"),
+        P.grain.enabled ? P.grain.chromaStdDev : 0,
+      );
       gl.uniform1f(final.loc("u_mono"), P.grain.monochromeMix);
       gl.uniform3f(final.loc("u_edgeColor"), edge[0], edge[1], edge[2]);
       gl.uniform1f(final.loc("u_edgeWidth"), P.edgeFade.widthFraction);
-      gl.uniform1f(final.loc("u_edgeOpacity"), P.edgeFade.enabled ? P.edgeFade.maxOpacity : 0);
+      gl.uniform1f(
+        final.loc("u_edgeOpacity"),
+        P.edgeFade.enabled ? P.edgeFade.maxOpacity : 0,
+      );
       gl.uniform1f(final.loc("u_edgePower"), P.edgeFade.falloffPower);
     });
     return this.canvas;
