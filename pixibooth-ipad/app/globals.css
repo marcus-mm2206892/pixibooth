@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* iPad Safari with its toolbars visible leaves ~740px of height in landscape. */
+@custom-variant short (@media (max-height: 860px));
+
 /* pixipocket booth tokens. The app shell is cobalt + navy + white; the eight
    printed-strip colors live in lib/photostrip.ts and never theme the UI. */
 :root {
@@ -88,6 +91,17 @@ body {
     max(env(safe-area-inset-left), 20px);
 }
 
+@media (max-height: 860px) {
+  .kiosk-bar {
+    padding-top: max(env(safe-area-inset-top), 6px);
+    padding-bottom: 6px;
+  }
+  .kiosk-body {
+    padding-top: 10px;
+    padding-bottom: max(env(safe-area-inset-bottom), 10px);
+  }
+}
+
 /* A box whose children can size themselves against its width AND height. */
 .fit-box {
   container-type: size;
@@ -107,40 +121,40 @@ body {
   aspect-ratio: 532 / 390;
 }
 
-/* Filter cards: widest row of --cols cards whose height still fits the .fit-box.
-   Each card = slot-shaped sample + ~92px of label/padding (+28px horizontal). */
+/* Filter cards. Portrait: a simple stacked list of horizontal cards.
+   Landscape: the widest row of 3 cards whose height still fits the .fit-box
+   (card = slot-shaped sample + ~92px of label/padding, +28px horizontal). */
 .filter-grid {
-  --gap: 16px;
-  --cols: 3;
-  --rows: 1;
+  --gap: 14px;
   display: grid;
   gap: var(--gap);
-  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  width: min(
-    100cqw,
-    var(--cols) * (((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows) - 92px) * 532 / 390 + 28px) +
-      (var(--cols) - 1) * var(--gap)
-  );
+  width: 100%;
+}
+@media (orientation: landscape) {
+  .filter-grid {
+    --cols: 3;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+    width: min(100cqw, var(--cols) * ((100cqh - 92px) * 532 / 390 + 28px) + (var(--cols) - 1) * var(--gap));
+  }
 }
 
-/* Style screen: live strip preview + color circles + filter cards. */
+/* Style screen: the live strip preview spans the full height on the left. */
 .style-layout {
   display: grid;
-  gap: 20px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 0.6fr);
+  column-gap: 28px;
+  row-gap: 18px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
   grid-template-areas:
+    "preview head"
     "preview colors"
-    "filters filters";
+    "preview filters"
+    "preview cta";
 }
 @media (orientation: landscape) {
   .style-layout {
     column-gap: 36px;
-    grid-template-columns: minmax(0, 0.8fr) minmax(0, 2.2fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      "preview colors"
-      "preview filters";
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 2.15fr);
   }
 }
 
@@ -310,7 +324,49 @@ body {
   animation: px-blink 1.1s steps(2, jump-none) infinite;
 }
 
+/* Arcade-style "selected" blink: a hard on/off outline, no fading. */
+@keyframes arcade-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-arcade {
+  animation: arcade-blink 0.9s infinite;
+}
+
+/* Button labels: same hard rhythm, but dims instead of vanishing so the button never looks empty. */
+@keyframes arcade-pulse {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+.animate-arcade-soft {
+  animation: arcade-pulse 0.9s infinite;
+}
+
+/* Same dot grid as .px-dots, but barely there (for dark backgrounds). */
+.px-dots-faint {
+  background-image: radial-gradient(rgb(221 235 255 / 0.12) 1.2px, transparent 1.2px);
+  background-size: 16px 16px;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .animate-arcade,
+  .animate-arcade-soft {
+    animation: none;
+  }
   .animate-px-blink {
     animation: none;
   }

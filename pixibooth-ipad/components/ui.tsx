@@ -105,7 +105,7 @@ export function ScreenTitle({
         {jp && <Jp className="ml-3 opacity-80">{jp}</Jp>}
       </p>
       <h1
-        className={`mt-1 flex items-center gap-3 font-pixel text-3xl uppercase leading-tight sm:text-4xl ${
+        className={`mt-1 flex items-center gap-3 font-pixel text-3xl uppercase leading-tight sm:text-4xl short:sm:text-3xl ${
           inverse ? "text-white" : "text-pp-navy"
         }`}
       >

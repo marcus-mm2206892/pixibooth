@@ -5,6 +5,7 @@
 
 import type { FilterId } from "./session";
 import { get2d, makeCanvas, mulberry32, releaseCanvas } from "./canvas";
+import { DREAM_FILM, stillRenderer } from "./dreamFilm";
 
 /** Live-camera approximation (CSS only); the saved photo uses `applyFilter`. */
 export type LivePreview = {
@@ -12,8 +13,8 @@ export type LivePreview = {
   /** Optional CSS background layered over the video. */
   overlay?: string;
   overlayBlend?: "normal" | "soft-light" | "screen" | "multiply";
-  /** Blurred, screened copy of the video for the bloom look. */
-  glow?: boolean;
+  /** Rendered live through the real WebGL pipeline instead of CSS. */
+  gpu?: boolean;
 };
 
 export type FilterInfo = {
@@ -39,38 +40,18 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
       overlay: "radial-gradient(ellipse at center, rgba(20,16,12,0) 42%, rgba(20,16,12,0.4) 100%)",
     },
   },
-  dreamy: {
-    id: "dreamy",
-    label: "Dreamy",
-    description: "Soft glowing light",
-    live: {
-      css: "brightness(1.05) contrast(0.92) saturate(0.96)",
-      overlay: "radial-gradient(ellipse at center, rgba(255,240,248,0) 55%, rgba(255,240,248,0.25) 100%)",
-      glow: true,
-    },
+  dreamfilm: {
+    id: "dreamfilm",
+    label: "Dream Film",
+    description: "Creamy analog glow",
+    // The live preview runs the same WebGL pipeline as the saved photo.
+    live: { css: "none", gpu: true },
   },
 };
 
-export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamy"];
+export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamfilm"];
 
 type Rgb = [number, number, number];
-
-type Grade = {
-  saturation: number;
-  contrast: number;
-  /** Output black and white points (fade = black above 0). */
-  black: number;
-  white: number;
-  /** Added mostly to dark tones / mostly to bright tones. */
-  shadowTint?: Rgb;
-  highlightTint?: Rgb;
-  mono?: boolean;
-  /** Fine grain amplitude (0 = none). Deterministic per photo seed. */
-  grain?: number;
-};
-
-/** Base grade under the Dreamy bloom: lifted blacks, softer contrast, pastel highlights. */
-const DREAMY_GRADE: Grade = { saturation: 0.95, contrast: 0.9, black: 14, white: 255, highlightTint: [8, 3, 10] };
 
 const clamp = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
 
@@ -83,58 +64,24 @@ export function applyFilter(
   seed = 1,
 ): void {
   if (filter === "none") return;
-  if (filter === "dreamy") {
-    // Bloom is computed from the ungraded image so it follows real highlights.
-    const bloom = brightPass(ctx.canvas, width, height);
-    grade(ctx, width, height, DREAMY_GRADE, seed);
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    ctx.globalAlpha = 0.6;
-    ctx.drawImage(bloom, 0, 0, width, height);
-    ctx.restore();
-    releaseCanvas(bloom);
-    vignette(ctx, width, height, "255, 240, 248", 0.22, 0.55);
+  if (filter === "dreamfilm") {
+    const renderer = stillRenderer();
+    if (renderer) {
+      const out = renderer.render(ctx.canvas, {
+        crop: { sx: 0, sy: 0, sw: width, sh: height },
+        outWidth: width,
+        outHeight: height,
+        seed,
+      });
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(out, 0, 0, width, height);
+    } else {
+      dreamFilmCpu(ctx, width, height, seed);
+    }
     return;
   }
   vintageDuotone(ctx, width, height);
   vignette(ctx, width, height, "20, 16, 12", 0.42, 0.42);
-}
-
-function grade(ctx: CanvasRenderingContext2D, w: number, h: number, g: Grade, seed: number) {
-  const image = ctx.getImageData(0, 0, w, h);
-  const d = image.data;
-  const rand = mulberry32(seed);
-  const range = (g.white - g.black) / 255;
-  const st = g.shadowTint ?? [0, 0, 0];
-  const ht = g.highlightTint ?? [0, 0, 0];
-  const grain = g.grain ?? 0;
-  for (let i = 0; i < d.length; i += 4) {
-    let r = d[i];
-    let gr = d[i + 1];
-    let b = d[i + 2];
-    const lum = 0.299 * r + 0.587 * gr + 0.114 * b;
-    if (g.mono) {
-      r = gr = b = lum;
-    } else {
-      r = lum + (r - lum) * g.saturation;
-      gr = lum + (gr - lum) * g.saturation;
-      b = lum + (b - lum) * g.saturation;
-    }
-    r = (r - 128) * g.contrast + 128;
-    gr = (gr - 128) * g.contrast + 128;
-    b = (b - 128) * g.contrast + 128;
-    const t = lum / 255;
-    const sw = (1 - t) * (1 - t);
-    const hw = t * t;
-    r += st[0] * sw + ht[0] * hw;
-    gr += st[1] * sw + ht[1] * hw;
-    b += st[2] * sw + ht[2] * hw;
-    const n = grain ? (rand() - 0.5) * grain : 0;
-    d[i] = clamp(g.black + clamp(r) * range + n);
-    d[i + 1] = clamp(g.black + clamp(gr) * range + n);
-    d[i + 2] = clamp(g.black + clamp(b) * range + n);
-  }
-  ctx.putImageData(image, 0, 0);
 }
 
 // ── Vintage Film: a port of the team's Canva recipe ─────────────────────────
@@ -195,6 +142,89 @@ function vintageDuotone(ctx: CanvasRenderingContext2D, w: number, h: number) {
     d[i + 2] = clamp(b);
   }
   ctx.putImageData(image, 0, 0);
+}
+
+/**
+ * CPU fallback for Dream Film when WebGL is unavailable: same stages and
+ * values; blurs use the downscale approximation, so it is close, not identical.
+ */
+function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed: number) {
+  const P = DREAM_FILM;
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const ex = Math.pow(2, P.exposureEV);
+  const smooth = (e0: number, e1: number, x: number) => {
+    const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+    return t * t * (3 - 2 * t);
+  };
+  for (let i = 0; i < d.length; i += 4) {
+    const c = [d[i] / 255, d[i + 1] / 255, d[i + 2] / 255].map((v) => (v * ex - 0.5) * P.contrast + 0.5);
+    let lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    const gains = [P.redGain, P.greenGain, P.blueGain];
+    for (let k = 0; k < 3; k++) {
+      let v = lum + (c[k] - lum) * P.saturation;
+      v = P.blackLift + Math.max(0, v) * (1 - P.blackLift);
+      v *= gains[k];
+      c[k] = v * (1 - P.highlightCompression * smooth(0.5, 1, v));
+    }
+    lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    const hw = P.highlightWarmth * smooth(0.5, 1, lum);
+    const sb = P.shadowBlueTint * (1 - smooth(0, 0.5, lum));
+    let r = c[0] + hw - 0.4 * sb;
+    let g = c[1] + 0.45 * hw;
+    let b = c[2] - 0.2 * hw + sb;
+    // Lip & blush color (see DREAM_FILM.lipColor).
+    const L = P.lipColor;
+    if (L.enabled) {
+      const mx = Math.max(r, g, b);
+      const mn = Math.min(r, g, b);
+      const sat = mx > 0 ? (mx - mn) / mx : 0;
+      let hue = 0;
+      if (mx !== mn) {
+        if (mx === r) hue = ((g - b) / (mx - mn) + 6) % 6;
+        else if (mx === g) hue = (b - r) / (mx - mn) + 2;
+        else hue = (r - g) / (mx - mn) + 4;
+      }
+      let dh = Math.abs(hue * 60 - L.hueCenter);
+      dh = Math.min(dh, 360 - dh);
+      const w = (1 - smooth(L.hueWidth, 2 * L.hueWidth, dh)) * smooth(L.minSaturation, L.minSaturation + 0.15, sat);
+      const l2 = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const k = 1 + L.saturationBoost * w;
+      const dark = 1 - L.depth * w;
+      r = (l2 + (r - l2) * k) * dark;
+      g = (l2 + (g - l2) * k) * dark;
+      b = (l2 + (b - l2) * k) * dark;
+    }
+    d[i] = clamp(r * 255);
+    d[i + 1] = clamp(g * 255);
+    d[i + 2] = clamp(b * 255);
+  }
+  ctx.putImageData(image, 0, 0);
+
+  const bloom = brightPass(ctx.canvas, w, h);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = P.bloom.opacity;
+  ctx.drawImage(bloom, 0, 0, w, h);
+  ctx.restore();
+  releaseCanvas(bloom);
+
+  const out = ctx.getImageData(0, 0, w, h);
+  const o = out.data;
+  const rand = mulberry32(seed);
+  const edgeW = P.edgeFade.widthFraction * Math.min(w, h);
+  const ec = [0xff, 0xf8, 0xf3];
+  const fade = (dist: number) => Math.pow(smooth(0, 1, 1 - Math.min(1, dist / edgeW)), P.edgeFade.falloffPower);
+  for (let y = 0; y < h; y++) {
+    const ay = fade(Math.min(y, h - 1 - y));
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const n = (rand() + rand() + rand() - 1.5) * 2 * P.grain.luminanceStdDev * 255;
+      const a = P.edgeFade.maxOpacity * (1 - (1 - fade(Math.min(x, w - 1 - x))) * (1 - ay));
+      for (let k = 0; k < 3; k++) o[i + k] = clamp((o[i + k] + n) * (1 - a) + ec[k] * a);
+    }
+  }
+  ctx.putImageData(out, 0, 0);
 }
 
 /** Keeps only bright pixels, then blurs them: a glow that leaves faces crisp. */

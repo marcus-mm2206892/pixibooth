@@ -4,13 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Camera,
-  FlipHorizontal2,
   Pause,
   Play,
   Reload,
   Repeat,
-  Volume2,
-  VolumeX,
 } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import { isCapturePhase } from "@/lib/boothEngine";
@@ -18,8 +15,9 @@ import { ERROR_COPY } from "@/lib/cameraErrors";
 import { FILTERS } from "@/lib/filters";
 import { FALLBACK_POSE } from "@/lib/poses";
 import { SHOT_COUNT, TIMING, nextEmptySlot } from "@/lib/session";
-import { popIn, shutterFlash } from "@/lib/motion";
+import { popIn } from "@/lib/motion";
 import { CaptureProgress } from "./CaptureProgress";
+import { DreamFilmLive } from "./DreamFilmLive";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
@@ -28,11 +26,9 @@ import { Button, ConfirmDialog, Jp, PixelFrame, PixelTag } from "./ui";
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 export function CameraBooth({ state, engine }: { state: BoothState; engine: BoothEngine }) {
-  const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror, settings } = state;
+  const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror } = state;
   const { photos, filter, poses } = session;
   const videoRef = useRef<HTMLVideoElement>(null);
-  const glowRef = useRef<HTMLVideoElement>(null);
-  const flashRef = useRef<HTMLDivElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
   const starRef = useRef<HTMLSpanElement>(null);
@@ -53,17 +49,15 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   }, [engine]);
 
   useEffect(() => {
-    for (const video of [videoRef.current, glowRef.current]) {
-      if (!video) continue;
-      if (video.srcObject !== stream) video.srcObject = stream;
-      if (stream) video.play().catch(() => {});
-    }
-  }, [stream, filter]);
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.srcObject !== stream) video.srcObject = stream;
+    if (stream) video.play().catch(() => {});
+  }, [stream]);
 
   useEffect(() => {
     if (state.flashCount === lastFlash.current) return;
     lastFlash.current = state.flashCount;
-    shutterFlash(flashRef.current);
     popIn(starRef.current, 2.4);
   }, [state.flashCount]);
 
@@ -93,12 +87,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const poseSlot = capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos);
   const pose = poseSlot !== null && poseSlot >= 0 ? (poses[poseSlot] ?? FALLBACK_POSE) : FALLBACK_POSE;
   const shotNumber = (activeSlot ?? 0) + 1;
-  const remaining = SHOT_COUNT - taken;
-  const primaryLabel = isRetake
-    ? `Retake photo ${pad2(retakeSlot + 1)}`
-    : taken === 0
-      ? `Take ${SHOT_COUNT} photos`
-      : `Take ${remaining} more`;
+  const primaryLabel = isRetake ? `Retake photo ${pad2(retakeSlot + 1)}` : "Press to start!";
 
   // English status + a short Japanese kiosk label.
   let tag: string;
@@ -136,7 +125,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
     <KioskShell step={2} tone="navy" bodyClassName="pt-3!">
       {/* Landscape: preview fills the left; toolbar + status column on the right.
           Portrait: toolbar, preview, then status stacked. */}
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 landscape:grid-cols-[minmax(0,1fr)_min(28%,310px)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-6">
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 landscape:grid-cols-[minmax(0,1fr)_min(30%,340px)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-6">
       <div className="flex flex-wrap items-center justify-between gap-3 landscape:col-start-2 landscape:row-start-1">
         <Button variant="ghost-inverse" size="md" onClick={requestCancel} faceClassName="px-2!">
           <ArrowLeft className="size-5" aria-hidden />
@@ -144,25 +133,6 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
         </Button>
         {phase === "camera-ready" && (
           <div className="flex flex-wrap gap-3">
-            <Button
-              variant={settings.sound ? "inverse" : "outline-inverse"}
-              size="sm"
-              aria-pressed={settings.sound}
-              aria-label={settings.sound ? "Sound on" : "Sound off"}
-              onClick={() => engine.updateSettings({ sound: !settings.sound })}
-            >
-              {settings.sound ? <Volume2 className="size-5" aria-hidden /> : <VolumeX className="size-5" aria-hidden />}
-              {settings.sound ? "On" : "Off"}
-            </Button>
-            <Button
-              variant={mirror ? "inverse" : "outline-inverse"}
-              size="sm"
-              aria-pressed={mirror}
-              onClick={() => engine.toggleMirror()}
-            >
-              <FlipHorizontal2 className="size-5" aria-hidden />
-              Mirror
-            </Button>
             {state.cameraCount > 1 && (
               <Button variant="outline-inverse" size="sm" aria-label="Switch camera" onClick={() => engine.flipCamera()}>
                 <Repeat className="size-5" aria-hidden />
@@ -194,17 +164,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: live.css }}
               />
-              {live.glow && (
-                <video
-                  ref={glowRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45 mix-blend-screen"
-                  style={{ transform: mirror ? "scaleX(-1)" : undefined, filter: `${live.css} brightness(1.15) blur(16px)` }}
-                />
-              )}
+              {live.gpu && <DreamFilmLive videoRef={videoRef} mirror={mirror} />}
               {live.overlay && (
                 <div
                   className="pointer-events-none absolute inset-0"
@@ -241,19 +201,30 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 </div>
               )}
 
+              {/* Time-left bar across the full width of the frame top: drains over the countdown. */}
+              {phase === "countdown" && (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-4 bg-pp-navy/55 short:h-3" aria-hidden>
+                  <div
+                    key={state.shotSerial}
+                    className="animate-drain h-full bg-white"
+                    style={{ animationDuration: `${TIMING.countdownSeconds * 1000}ms` }}
+                  />
+                </div>
+              )}
+
               {/* Small corner countdown for people watching themselves; the big one is beside the frame. */}
               {phase === "countdown" && countdown !== null && (
                 <span
                   key={countdown}
                   ref={badgeRef}
-                  className="px-corners absolute right-4 top-4 flex size-16 items-center justify-center bg-white font-pixel text-5xl text-pp-navy"
+                  className="px-corners absolute right-4 top-7 flex size-16 items-center justify-center bg-white font-pixel text-5xl text-pp-navy"
                   aria-hidden
                 >
                   {countdown}
                 </span>
               )}
 
-              <span ref={starRef} className="pointer-events-none absolute left-1.5 top-1.5" aria-hidden>
+              <span ref={starRef} className="pointer-events-none absolute left-1.5 top-6" aria-hidden>
                 <PixelStar variant="duo" size={24} color="#FFFFFF" accent="var(--pp-blue)" />
               </span>
 
@@ -314,33 +285,26 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 </div>
               )}
 
-              <div ref={flashRef} className="pointer-events-none absolute inset-0 bg-white opacity-0" aria-hidden />
             </PixelFrame>
             </div>
           </div>
 
         {/* Status, the big countdown, progress and the one big button. */}
-        <aside className="grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-4 landscape:col-start-2 landscape:row-start-2 landscape:flex landscape:flex-col landscape:items-stretch landscape:justify-center">
+        <aside className="grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-3 landscape:col-start-2 landscape:row-start-2 landscape:flex landscape:flex-col landscape:items-stretch landscape:justify-center">
           <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center justify-between gap-3">
             <PixelTag inverse>
               {tag}
               <Jp className="ml-1">{tagJa}</Jp>
             </PixelTag>
-            {(capturing || phase === "paused") && (
-              <span className="flex items-center gap-1.5 font-pixel text-xs tracking-widest text-white/75">
-                {settings.sound ? <Volume2 className="size-4" aria-hidden /> : <VolumeX className="size-4" aria-hidden />}
-                {settings.sound ? "SOUND ON" : "MUTED"}
-              </span>
-            )}
           </div>
 
-          <div className="flex min-h-[clamp(84px,12vh,140px)] items-center landscape:min-h-[clamp(120px,30vh,260px)]" aria-live="assertive">
+          <div className="flex min-h-[clamp(72px,10vh,120px)] items-center landscape:min-h-[clamp(96px,22vh,190px)]" aria-live="assertive">
             {phase === "countdown" && countdown !== null ? (
               <span
                 key={countdown}
                 ref={countRef}
-                className="font-pixel text-[clamp(6rem,13vh,9rem)] leading-none tabular-nums landscape:text-[clamp(8rem,32vh,16rem)]"
+                className="font-pixel text-[clamp(5rem,11vh,8rem)] leading-none tabular-nums landscape:text-[clamp(6rem,24vh,12rem)]"
               >
                 {countdown}
               </span>
@@ -359,7 +323,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                             ? `Retake photo ${pad2(retakeSlot + 1)}`
                             : "Ready to pose?"}
                 </p>
-                <p className="mt-2 font-pixel text-sm tracking-wider text-white/75">
+                <p className="mt-1 font-pixel text-sm tracking-wider text-white/75">
                   {phase === "pose-break"
                     ? `PHOTO ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)} IS NEXT`
                     : isRetake
@@ -377,29 +341,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos)}
           />
 
-          {idle && (
-            <p className="col-span-2 flex items-center justify-between gap-2 font-pixel text-xs tracking-widest text-white/75">
-              <span>FILTER: {FILTERS[filter].label.toUpperCase()}</span>
-              <button
-                type="button"
-                className="min-h-11 px-2 underline decoration-2 underline-offset-4"
-                onClick={() => engine.showStyle()}
-              >
-                CHANGE
-              </button>
-            </p>
-          )}
 
           {phase === "camera-ready" && (
             <Button
               variant="inverse"
               size="xl"
               className="col-span-2 w-full"
+              faceClassName="whitespace-nowrap px-4! short:text-[1.4rem]"
               disabled={!videoReady}
               onClick={() => engine.startCapture()}
             >
               <Camera className="size-8" aria-hidden />
-              {primaryLabel}
+              <span className={isRetake ? "" : "animate-arcade-soft"}>{primaryLabel}</span>
             </Button>
           )}
         </aside>

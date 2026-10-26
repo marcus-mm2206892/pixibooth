@@ -146,7 +146,7 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
   return (
     <div
       ref={root}
-      className="kiosk relative cursor-pointer overflow-hidden bg-pp-navy px-dots text-white"
+      className="kiosk relative cursor-pointer overflow-hidden bg-pp-navy px-dots-faint text-white"
       onClick={leave}
       role="dialog"
       aria-label="Thank you"

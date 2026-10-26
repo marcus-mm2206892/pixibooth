@@ -46,6 +46,8 @@ export type BoothState = {
   countdown: number | null;
   /** Increments once per successful exposure; drives flash + celebration. */
   flashCount: number;
+  /** Increments each time a countdown (re)starts; restarts the on-frame timer bar. */
+  shotSerial: number;
   cameraStatus: "off" | "starting" | "live";
   stream: MediaStream | null;
   error: CameraErrorKind | null;
@@ -70,8 +72,6 @@ const CAMERA_PHASES: ReadonlySet<BoothPhase> = new Set([
 export const isCapturePhase = (phase: BoothPhase) => CAPTURE_PHASES.has(phase);
 export const isCameraPhase = (phase: BoothPhase) => CAMERA_PHASES.has(phase);
 
-const SETTINGS_KEY = "pixipocket:settings";
-
 function initialState(): BoothState {
   return {
     phase: "welcome",
@@ -81,6 +81,7 @@ function initialState(): BoothState {
     retakeSlot: null,
     countdown: null,
     flashCount: 0,
+    shotSerial: 0,
     cameraStatus: "off",
     stream: null,
     error: null,
@@ -125,16 +126,6 @@ export class BoothEngine {
 
   private patchSession(partial: Partial<PhotoSession>) {
     this.patch({ session: { ...this.state.session, ...partial } });
-  }
-
-  /** Client-only setup (localStorage). Call once after mount. */
-  hydrate() {
-    try {
-      const raw = window.localStorage.getItem(SETTINGS_KEY);
-      if (raw) this.patch({ settings: { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } });
-    } catch {
-      // ignore unreadable/blocked storage
-    }
   }
 
   /** Stops timers and the camera (unmount, Fast Refresh). The engine stays usable. */
@@ -284,18 +275,6 @@ export class BoothEngine {
     this.patch({ mirror: !this.state.mirror });
   }
 
-  /** Called from taps, so turning sound on also unlocks audio on iOS. */
-  updateSettings(partial: Partial<BoothSettings>) {
-    const settings = { ...this.state.settings, ...partial };
-    this.patch({ settings });
-    if (settings.sound) this.audio.unlock();
-    try {
-      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    } catch {
-      // settings still apply for this page load
-    }
-  }
-
   /** Pauses on hide; on return, re-acquires the wake lock and checks the camera survived. */
   handleVisibility(hidden: boolean) {
     if (hidden) {
@@ -397,7 +376,13 @@ export class BoothEngine {
   private runShot(slot: number, gen: number) {
     const seconds = TIMING.countdownSeconds;
     const total = seconds * 1000;
-    this.patch({ phase: "countdown", activeSlot: slot, countdown: seconds, pausedBy: null });
+    this.patch({
+      phase: "countdown",
+      activeSlot: slot,
+      countdown: seconds,
+      pausedBy: null,
+      shotSerial: this.state.shotSerial + 1,
+    });
     this.playTick(seconds);
     this.runTimer(
       gen,

@@ -124,17 +124,9 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
 
   return (
     <KioskShell rootRef={root} step={1} ticket={ticketNumber(session)}>
-      <div data-enter className="flex shrink-0 items-end justify-between gap-4">
-        <ScreenTitle label="01 / STYLE" jp="スタイルを選ぶ" title="Style your strip" />
-        <Button variant="ghost" size="md" onClick={() => engine.goHome()}>
-          <ArrowLeft className="size-5" aria-hidden />
-          Back
-        </Button>
-      </div>
-
-      <div className="style-layout min-h-0 flex-1 py-4">
-        {/* Live preview of the finished strip. */}
-        <section data-enter style={{ gridArea: "preview" }} className="flex min-h-0 flex-col gap-3" aria-label="Strip preview">
+      <div className="style-layout min-h-0 flex-1">
+        {/* Live preview of the finished strip: the full height of the screen. */}
+        <section data-enter style={{ gridArea: "preview" }} className="flex min-h-0 flex-col gap-2" aria-label="Strip preview">
           <div className="fit-box relative flex flex-1 items-center justify-center">
             <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.3)]">
               <canvas
@@ -151,7 +143,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
             <video ref={videoRef} autoPlay playsInline muted aria-hidden className="pointer-events-none absolute size-px opacity-0" />
           </div>
 
-          <div className="flex min-h-11 flex-wrap items-center justify-center gap-2 text-center">
+          <div className="flex min-h-10 flex-wrap items-center justify-center gap-2 text-center">
             {liveNow ? (
               <PixelTag>
                 <span className="animate-px-blink size-2 bg-white" aria-hidden />
@@ -173,13 +165,21 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
           </div>
         </section>
 
-        {/* Strip colors: simple circles. */}
-        <section data-enter style={{ gridArea: "colors" }} className="flex min-h-0 flex-col justify-center gap-4">
+        <div data-enter style={{ gridArea: "head" }} className="flex items-start justify-between gap-4">
+          <ScreenTitle label="01 / STYLE" jp="スタイルを選ぶ" title="Style your strip" />
+          <Button variant="ghost" size="md" onClick={() => engine.goHome()}>
+            <ArrowLeft className="size-5" aria-hidden />
+            Back
+          </Button>
+        </div>
+
+        {/* Strip colors: rounded squares; the selected one blinks like an arcade cursor. */}
+        <section data-enter style={{ gridArea: "colors" }} className="flex min-h-0 flex-col gap-3">
           <h2 className="flex flex-wrap items-baseline gap-x-3 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">
             Strip color <Jp className="opacity-80">色</Jp>
             <span className="font-pixel text-lg normal-case tracking-normal text-pp-navy">{TEMPLATES[template].label}</span>
           </h2>
-          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 gap-4 justify-items-start landscape:flex landscape:flex-wrap landscape:gap-5">
+          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 landscape:flex landscape:flex-wrap landscape:gap-5">
             {TEMPLATE_ORDER.map((t) => {
               const selected = t === template;
               const style = TEMPLATES[t];
@@ -198,12 +198,17 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     engine.setTemplate(t);
                     bump(cards.current[t]);
                   }}
-                  className={`flex size-14 shrink-0 items-center justify-center rounded-full transition-shadow focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
-                    selected ? "ring-4 ring-pp-navy ring-offset-4 ring-offset-white" : "ring-1 ring-pp-navy/20"
+                  className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl short:size-14 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
+                    selected ? "ring-[3px] ring-pp-navy" : "ring-1 ring-pp-navy/20"
                   }`}
                   style={{ background: style.background }}
                 >
-                  {selected && <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />}
+                  {selected && (
+                    <>
+                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 rounded-2xl border-4 border-pp-blue" />
+                      <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -215,8 +220,8 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
           <h2 className="font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">
             Filter <Jp className="ml-1 opacity-80">フィルター</Jp>
           </h2>
-          <div className="fit-box flex flex-1 items-start justify-start">
-            <div role="radiogroup" aria-label="Photo filter" className="filter-grid">
+          <div className="fit-box flex flex-1 items-start justify-start portrait:overflow-y-auto portrait:[container-type:normal]">
+            <div role="radiogroup" aria-label="Photo filter" className="filter-grid" style={{ "--cols": FILTER_ORDER.length } as React.CSSProperties}>
               {FILTER_ORDER.map((f) => {
                 const selected = f === filter;
                 const info = FILTERS[f];
@@ -234,23 +239,26 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                       engine.setFilter(f);
                       bump(cards.current[f]);
                     }}
-                    className="text-left focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
+                    className="relative text-left focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
                   >
+                    {selected && (
+                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-1.5 z-10 border-4 border-pp-blue" />
+                    )}
                     <PixelFrame
                       edge={selected ? "bg-pp-navy" : "bg-pp-blue-line"}
                       fill={selected ? "bg-pp-blue-soft" : "bg-white"}
                       border={selected ? 4 : 2}
-                      innerClassName="flex flex-col gap-2 p-2.5"
+                      innerClassName="flex items-center gap-3 p-2.5 landscape:flex-col landscape:items-stretch landscape:gap-2"
                     >
-                      <div className="relative">
+                      <div className="relative w-[40%] shrink-0 landscape:w-full">
                         <FilterSample filter={f} />
                         {selected && (
-                          <span className="absolute left-0 top-0 bg-pp-navy px-2 py-0.5 font-pixel text-xs tracking-widest text-white">
+                          <span className="animate-arcade absolute left-0 top-0 bg-pp-navy px-2 py-0.5 font-pixel text-xs tracking-widest text-white">
                             ★ SELECTED
                           </span>
                         )}
                       </div>
-                      <span className="flex items-center justify-between gap-2 px-1">
+                      <span className="flex min-w-0 flex-1 items-center justify-between gap-2 px-1">
                         <span className="min-w-0">
                           <span className="block truncate font-label text-xl font-bold uppercase leading-tight tracking-wide text-pp-navy">
                             {info.label}
@@ -266,16 +274,16 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
             </div>
           </div>
         </section>
-      </div>
 
-      <div data-enter className="flex shrink-0 flex-wrap items-center justify-between gap-4 pt-1">
-        <p className="font-pixel text-sm text-pp-navy">
-          {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
-        </p>
-        <Button size="xl" onClick={() => engine.showCamera()}>
-          <Camera className="size-8" aria-hidden />
-          Continue to camera
-        </Button>
+        <div data-enter style={{ gridArea: "cta" }} className="flex flex-wrap items-center justify-between gap-4">
+          <p className="font-pixel text-sm text-pp-navy portrait:hidden">
+            {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
+          </p>
+          <Button size="xl" className="portrait:w-full" onClick={() => engine.showCamera()}>
+            <Camera className="size-8" aria-hidden />
+            Continue to camera
+          </Button>
+        </div>
       </div>
     </KioskShell>
   );

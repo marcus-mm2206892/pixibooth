@@ -41,18 +41,19 @@ export function bump(el: Element | null) {
   });
 }
 
-/** Shutter flash: full white, then fades out (~180 ms visible). */
+/** Shutter flash: holds full white for 250 ms, then fades over ~1.6 s. */
 export function shutterFlash(el: HTMLElement | null) {
   if (!el) return;
+  el.style.opacity = "1";
   if (reducedMotion()) {
-    el.style.opacity = "0.85";
-    window.setTimeout(() => (el.style.opacity = "0"), 150);
+    window.setTimeout(() => (el.style.opacity = "0"), 1800);
     return;
   }
   return animate(el, {
-    opacity: [0.95, 0],
-    duration: 320,
-    ease: "outQuad",
+    opacity: [1, 0],
+    delay: 250,
+    duration: 1550,
+    ease: "outCubic",
   });
 }
 

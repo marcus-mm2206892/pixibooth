@@ -67,7 +67,7 @@ export function KioskShell({
           height={936}
           priority
           unoptimized
-          className="h-10 w-auto"
+          className="h-10 w-auto short:h-8"
         />
         {step && <StepTicker step={step} />}
         <span className="px-corners px-corners-sm flex items-center gap-2 border-2 border-white/80 px-2.5 py-1 font-pixel text-xs tracking-widest sm:text-sm">
@@ -76,11 +76,11 @@ export function KioskShell({
         </span>
       </header>
 
-      <main className={`kiosk-body ${ticket ? "pb-3!" : ""} ${bodyClassName}`}>{children}</main>
+      <main className={`kiosk-body ${ticket ? "pb-3! short:pb-[max(env(safe-area-inset-bottom),10px)]!" : ""} ${bodyClassName}`}>{children}</main>
 
       {ticket && (
         <footer
-          className={`flex shrink-0 items-center gap-3 px-[max(env(safe-area-inset-left),20px)] pb-[max(env(safe-area-inset-bottom),10px)] font-pixel text-xs tracking-widest ${
+          className={`flex shrink-0 short:hidden items-center gap-3 px-[max(env(safe-area-inset-left),20px)] pb-[max(env(safe-area-inset-bottom),10px)] font-pixel text-xs tracking-widest ${
             tone === "navy" ? "text-white/60" : "text-pp-navy/70"
           }`}
         >

@@ -3,12 +3,11 @@
 import { useEffect, useRef } from "react";
 import { ArrowRight } from "pixelarticons/react";
 import { riseIn } from "@/lib/motion";
+import { enterFullscreen } from "@/lib/fullscreen";
 import { PhotostripPreview } from "./PhotostripPreview";
-import { KioskShell, STEPS_JA } from "./KioskShell";
+import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { Button, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
-
-const TICKET = ["01 / STYLE", "02 / SNAP", "03 / KEEP"];
+import { Button, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const root = useEnterAnimation<HTMLDivElement>();
@@ -23,34 +22,23 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
   return (
     <KioskShell rootRef={root}>
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-6 landscape:grid-cols-[1.15fr_1fr] landscape:grid-rows-1 landscape:gap-10">
-        <section className="relative flex flex-col justify-center px-2 py-4 sm:px-6">
-          <p data-enter className="flex items-center gap-2 font-label text-lg font-bold tracking-[0.18em] text-pp-blue">
-            <PixelStar size={16} color="var(--pp-blue)" />
-            4-CUT MEMORY BOOTH
-            <Jp className="ml-2 opacity-80">4カット写真</Jp>
-          </p>
-          <h1
-            data-enter
-            className="mt-4 font-pixel text-5xl uppercase leading-[1.08] text-pp-navy sm:text-6xl lg:text-7xl"
-          >
-            Your little moment, in four frames
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-6 landscape:grid-cols-[1.1fr_1fr] landscape:grid-rows-1 landscape:gap-10">
+        <section className="flex flex-col items-center justify-center gap-10 px-2 py-4 text-center sm:px-6 landscape:items-start landscape:text-left">
+          <h1 data-enter className="font-pixel text-[clamp(3.5rem,10vw,8rem)] leading-none text-pp-navy">
+            PIXIBOOTH
           </h1>
-          <p data-enter className="mt-5 font-pixel text-lg tracking-wider text-pp-ink">
-            4 PHOTOS · 1 STRIP · LOTS OF MEMORIES
-          </p>
-          <div data-enter className="mt-9">
-            <Button size="xl" onClick={onStart}>
-              Start photo session
+          <div data-enter>
+            <Button
+              size="xl"
+              onClick={() => {
+                enterFullscreen();
+                onStart();
+              }}
+            >
+              <span className="animate-arcade-soft">Start photo session</span>
               <ArrowRight className="size-8" aria-hidden />
             </Button>
-            <p className="mt-3 font-pixel text-sm text-pp-blue">
-              <Jp>ようこそ！タップしてスタート</Jp>
-            </p>
           </div>
-          <p data-enter className="mt-6 max-w-md text-sm text-pp-ink/75">
-            Photos stay on this device for your session only. Nothing is uploaded.
-          </p>
         </section>
 
         <section data-enter className="relative min-h-0">
@@ -86,23 +74,6 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         </section>
       </div>
 
-      <div data-enter className="mt-5 shrink-0">
-        <PixelFrame
-          edge="bg-pp-navy"
-          border={2}
-          step={3}
-          innerClassName="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2.5"
-        >
-          {TICKET.map((t, i) => (
-            <span key={t} className="flex items-center gap-4 font-pixel text-sm tracking-widest text-pp-navy sm:text-base">
-              <span>
-                {t} <Jp className="ml-1 opacity-75">{STEPS_JA[i]}</Jp>
-              </span>
-              {i < TICKET.length - 1 && <ArrowRight className="size-4 text-pp-blue-line" aria-hidden />}
-            </span>
-          ))}
-        </PixelFrame>
-      </div>
     </KioskShell>
   );
 }
