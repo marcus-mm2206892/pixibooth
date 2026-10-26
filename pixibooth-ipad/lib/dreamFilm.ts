@@ -5,7 +5,7 @@
 // Pipeline (all sigmas are px at 1280 px image width, scaled to the output size):
 //   1 grade  →  2 optical diffusion (σ2 gaussian, screen 10%)  →  3 bloom
 //   (soft-knee threshold on the graded image, blurred at ¼ res, warm-white tint,
-//   screen 18%)  →  4 grain (stable per seed)  →  5 faint edge haze
+//   screen 22.5%)  →  4 grain (stable per seed)  →  5 faint edge haze
 
 export const DREAM_FILM = {
   name: "Dream Film",
@@ -49,7 +49,7 @@ export const DREAM_FILM = {
     threshold: 0.78,
     softKnee: 0.12,
     blurSigma: 16,
-    opacity: 0.18,
+    opacity: 0.225,
     tint: "#FFF3E4",
     blendMode: "screen",
   },
