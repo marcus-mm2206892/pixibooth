@@ -28,7 +28,7 @@ Pick one of these:
 2. **Vercel preview deploy.** There is no backend and there are no secrets, so `npx vercel` (free) gives you an HTTPS URL that works on any device.
 3. **Trusted LAN certificate.** `next dev --experimental-https` creates a certificate that your **Mac** trusts. The iPad will **not** trust it unless you install and fully trust the mkcert root CA on the iPad (Settings › General › About › Certificate Trust Settings) and serve a certificate that covers the Mac's LAN IP. That is more work than options 1 and 2.
 
-**Full screen:** tapping *Start photo session* asks the browser for full screen (works in iPadOS Safari and desktop Chrome/Safari). For a permanent kiosk with no browser bars at all, open the booth in Safari › Share › **Add to Home Screen** and launch it from the icon (`app/manifest.ts` sets `display: fullscreen`).
+**Startup / full screen:** the landing page is the setup point. If camera access was granted before, the camera starts there automatically and *Start photo session* unlocks once it is live. On the very first run (or after a denial) staff tap **Set up booth** once: it shows the camera permission prompt and enters full screen. The camera then stays on between sessions, so Start is instant. For a permanent kiosk with no browser bars at all, open the booth in Safari › Share › **Add to Home Screen** and launch it from the icon (`app/manifest.ts` sets `display: fullscreen`).
 
 Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided Access**. Set **Auto-Lock** to Never; the app also requests a Wake Lock where supported. If camera access was denied: tap **aA** in the address bar › Website Settings › Camera › Allow.
 

@@ -199,13 +199,12 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     bump(cards.current[t]);
                   }}
                   className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl short:size-14 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
-                    selected ? "ring-[3px] ring-pp-navy" : "ring-1 ring-pp-navy/20"
+                    selected ? "ring-[3px] ring-pp-navy blink-ring" : "ring-1 ring-pp-navy/20"
                   }`}
                   style={{ background: style.background }}
                 >
                   {selected && (
                     <>
-                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 rounded-2xl border-4 border-pp-blue" />
                       <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />
                     </>
                   )}
@@ -241,11 +240,8 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     }}
                     className="relative text-left focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
                   >
-                    {selected && (
-                      <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-1.5 z-10 border-4 border-pp-blue" />
-                    )}
                     <PixelFrame
-                      edge={selected ? "bg-pp-navy" : "bg-pp-blue-line"}
+                      edge={selected ? "bg-pp-navy blink-edge" : "bg-pp-blue-line"}
                       fill={selected ? "bg-pp-blue-soft" : "bg-white"}
                       border={selected ? 4 : 2}
                       innerClassName="flex items-center gap-3 p-2.5 landscape:flex-col landscape:items-stretch landscape:gap-2"

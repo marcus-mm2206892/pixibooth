@@ -62,6 +62,8 @@ export function toCameraError(err: unknown): CameraError {
     case "DevicesNotFoundError":
     case "OverconstrainedError":
       return new CameraError("not-found", message);
+    case "NotSupportedError":
+      return new CameraError("unsupported", message);
     case "NotReadableError":
     case "TrackStartError":
     case "AbortError":

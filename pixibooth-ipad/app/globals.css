@@ -356,6 +356,34 @@ body {
   animation: arcade-pulse 0.9s infinite;
 }
 
+/* Selected template/filter: the existing navy outline itself fades navy ↔ white.
+   .blink-ring animates the ring (box-shadow) of the color squares;
+   .blink-edge animates the background of a PixelFrame's edge layer. */
+@keyframes selected-ring-blink {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--pp-navy);
+  }
+  50% {
+    box-shadow: 0 0 0 3px #ffffff;
+  }
+}
+@keyframes selected-edge-blink {
+  0%,
+  100% {
+    background-color: var(--pp-navy);
+  }
+  50% {
+    background-color: #ffffff;
+  }
+}
+.blink-ring {
+  animation: selected-ring-blink 1.1s ease-in-out infinite;
+}
+.blink-edge {
+  animation: selected-edge-blink 1.1s ease-in-out infinite;
+}
+
 /* Same dot grid as .px-dots, but barely there (for dark backgrounds). */
 .px-dots-faint {
   background-image: radial-gradient(rgb(221 235 255 / 0.12) 1.2px, transparent 1.2px);
@@ -364,7 +392,9 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-arcade,
-  .animate-arcade-soft {
+  .animate-arcade-soft,
+  .blink-ring,
+  .blink-edge {
     animation: none;
   }
   .animate-px-blink {

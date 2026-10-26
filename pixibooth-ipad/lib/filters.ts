@@ -5,7 +5,7 @@
 
 import type { FilterId } from "./session";
 import { get2d, makeCanvas, mulberry32, releaseCanvas } from "./canvas";
-import { DREAM_FILM, stillRenderer } from "./dreamFilm";
+import { DREAM_FILM, gradePixel, stillRenderer } from "./dreamFilm";
 
 /** Live-camera approximation (CSS only); the saved photo uses `applyFilter`. */
 export type LivePreview = {
@@ -152,52 +152,15 @@ function dreamFilmCpu(ctx: CanvasRenderingContext2D, w: number, h: number, seed:
   const P = DREAM_FILM;
   const image = ctx.getImageData(0, 0, w, h);
   const d = image.data;
-  const ex = Math.pow(2, P.exposureEV);
   const smooth = (e0: number, e1: number, x: number) => {
     const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
     return t * t * (3 - 2 * t);
   };
   for (let i = 0; i < d.length; i += 4) {
-    const c = [d[i] / 255, d[i + 1] / 255, d[i + 2] / 255].map((v) => (v * ex - 0.5) * P.contrast + 0.5);
-    let lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    const gains = [P.redGain, P.greenGain, P.blueGain];
-    for (let k = 0; k < 3; k++) {
-      let v = lum + (c[k] - lum) * P.saturation;
-      v = P.blackLift + Math.max(0, v) * (1 - P.blackLift);
-      v *= gains[k];
-      c[k] = v * (1 - P.highlightCompression * smooth(0.5, 1, v));
-    }
-    lum = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
-    const hw = P.highlightWarmth * smooth(0.5, 1, lum);
-    const sb = P.shadowBlueTint * (1 - smooth(0, 0.5, lum));
-    let r = c[0] + hw - 0.4 * sb;
-    let g = c[1] + 0.45 * hw;
-    let b = c[2] - 0.2 * hw + sb;
-    // Lip & blush color (see DREAM_FILM.lipColor).
-    const L = P.lipColor;
-    if (L.enabled) {
-      const mx = Math.max(r, g, b);
-      const mn = Math.min(r, g, b);
-      const sat = mx > 0 ? (mx - mn) / mx : 0;
-      let hue = 0;
-      if (mx !== mn) {
-        if (mx === r) hue = ((g - b) / (mx - mn) + 6) % 6;
-        else if (mx === g) hue = (b - r) / (mx - mn) + 2;
-        else hue = (r - g) / (mx - mn) + 4;
-      }
-      let dh = Math.abs(hue * 60 - L.hueCenter);
-      dh = Math.min(dh, 360 - dh);
-      const w = (1 - smooth(L.hueWidth, 2 * L.hueWidth, dh)) * smooth(L.minSaturation, L.minSaturation + 0.15, sat);
-      const l2 = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      const k = 1 + L.saturationBoost * w;
-      const dark = 1 - L.depth * w;
-      r = (l2 + (r - l2) * k) * dark;
-      g = (l2 + (g - l2) * k) * dark;
-      b = (l2 + (b - l2) * k) * dark;
-    }
-    d[i] = clamp(r * 255);
-    d[i + 1] = clamp(g * 255);
-    d[i + 2] = clamp(b * 255);
+    const c = gradePixel([d[i] / 255, d[i + 1] / 255, d[i + 2] / 255], P);
+    d[i] = c[0] * 255;
+    d[i + 1] = c[1] * 255;
+    d[i + 2] = c[2] * 255;
   }
   ctx.putImageData(image, 0, 0);
 

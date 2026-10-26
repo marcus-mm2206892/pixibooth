@@ -1,17 +1,33 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { ArrowRight } from "pixelarticons/react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { ArrowRight, Camera, Expand, Reload } from "pixelarticons/react";
+import type { BoothEngine, BoothState } from "@/lib/boothEngine";
+import { ERROR_COPY } from "@/lib/cameraErrors";
 import { riseIn } from "@/lib/motion";
-import { enterFullscreen } from "@/lib/fullscreen";
+import { enterFullscreen, needsFullscreen, onFullscreenChange } from "@/lib/fullscreen";
 import { PhotostripPreview } from "./PhotostripPreview";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
 import { Button, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
-export function WelcomeScreen({ onStart }: { onStart: () => void }) {
+/**
+ * Landing page. Also the booth's setup point: the camera is started here (and
+ * full screen entered) so pressing Start goes straight into a session.
+ */
+export function WelcomeScreen({ state, engine }: { state: BoothState; engine: BoothEngine }) {
   const root = useEnterAnimation<HTMLDivElement>();
   const strip = useRef<HTMLDivElement>(null);
+  const wantsFullscreen = useSyncExternalStore(onFullscreenChange, needsFullscreen, () => false);
+  const { cameraStatus, error, cameraPermission } = state;
+  const cameraReady = cameraStatus === "live";
+  const errorCopy = error ? ERROR_COPY[error] : null;
+
+  /** One tap covers both browser requirements: camera permission and full screen. */
+  const setUp = () => {
+    enterFullscreen();
+    if (!cameraReady) void engine.startPreview();
+  };
 
   useEffect(() => {
     const a = riseIn(strip.current, 250);
@@ -27,17 +43,38 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
           <h1 data-enter className="font-pixel text-[clamp(3.5rem,10vw,8rem)] leading-none text-pp-navy">
             PIXIBOOTH
           </h1>
-          <div data-enter>
-            <Button
-              size="xl"
-              onClick={() => {
-                enterFullscreen();
-                onStart();
-              }}
-            >
-              <span className="animate-arcade-soft">Start photo session</span>
-              <ArrowRight className="size-8" aria-hidden />
-            </Button>
+          <div data-enter className="flex flex-col items-center gap-4 landscape:items-start">
+            {cameraReady ? (
+              <Button size="xl" onClick={() => engine.begin()}>
+                <span className="animate-arcade-soft">Start photo session</span>
+                <ArrowRight className="size-8" aria-hidden />
+              </Button>
+            ) : cameraStatus === "starting" ? (
+              <Button size="xl" disabled>
+                <Camera className="size-8" aria-hidden />
+                Preparing camera…
+              </Button>
+            ) : (
+              <>
+                <Button size="xl" onClick={setUp}>
+                  {errorCopy ? <Reload className="size-8" aria-hidden /> : <Camera className="size-8" aria-hidden />}
+                  {errorCopy ? "Try camera again" : "Set up booth"}
+                </Button>
+                <p className="max-w-md text-sm text-pp-ink/75">
+                  {errorCopy
+                    ? `${errorCopy.title}. ${errorCopy.body}`
+                    : cameraPermission === "denied"
+                      ? ERROR_COPY.denied.body
+                      : "Staff: tap once to allow the camera and go full screen. After that, sessions start instantly."}
+                </p>
+              </>
+            )}
+            {cameraReady && wantsFullscreen && (
+              <Button variant="secondary" size="sm" onClick={() => enterFullscreen()}>
+                <Expand className="size-4" aria-hidden />
+                Full screen
+              </Button>
+            )}
           </div>
         </section>
 

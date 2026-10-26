@@ -4,52 +4,83 @@
 //
 // Pipeline (all sigmas are px at 1024 px on the shorter side, scaled to the
 // output size):
-//   1 grade  →  2 soft focus (15% gaussian)  →  3 bloom (soft-knee threshold,
-//   blurred at ¼ res, screen 16%)  →  4 grain (stable per seed)  →  5 edge fade
+//   1 grade (global film grade, then skin / cheek / lip color masks)  →
+//   2 soft focus  →  3 bloom (soft-knee threshold, blurred at ¼ res, screen)  →
+//   4 grain (stable per seed)  →  5 edge fade
 
 export const DREAM_FILM = {
   name: "Dream Film",
 
   // COLOR GRADING
-  exposureEV: 0.1,
-  contrast: 0.92,
-  saturation: 0.92,
-  gamma: 1.0,
-  blackLift: 0.025,
+  exposureEV: 0.14,
+  contrast: 0.9,
+  saturation: 0.95,
+  gamma: 1.02,
+  blackLift: 0.03,
+
+  // NOSTALGIC WARMTH (temperature: +red −blue; tint: −green = rosy)
+  temperatureShift: 0.045,
+  tintShift: 0.02,
 
   // WARM FILM COLOR
-  redGain: 1.025,
-  greenGain: 1.0,
-  blueGain: 0.975,
+  redGain: 1.045,
+  greenGain: 1.01,
+  blueGain: 0.965,
 
   // PASTEL TONAL CHARACTER
-  highlightCompression: 0.08,
-  highlightWarmth: 0.025,
-  shadowBlueTint: 0.015,
+  highlightCompression: 0.1,
+  highlightWarmth: 0.045,
+  shadowBlueTint: 0.008,
 
-  // LIP & BLUSH COLOR (added on top of the original spec): the global
-  // desaturation, lifted blacks, bloom and haze wash out lips. This restores
-  // only red-pink hues (lips/cheeks), never the orange hue of skin.
-  lipColor: {
+  // CREAMY PEACH-PINK SKIN (applied through the skin color mask below)
+  skinTones: {
     enabled: true,
-    hueCenter: 354, // degrees: red-pink (skin sits around 15–35°, outside the window)
-    hueWidth: 12, // ± degrees of full effect, fading out over the same width again
-    minSaturation: 0.22, // only already-colored pixels (lips), not pale skin
-    saturationBoost: 0.35,
-    depth: 0.04, // slight darkening so lips read as color, not glow
+    luminanceLift: 0.06,
+    saturationSoftness: 0.035,
+    hueShiftDegrees: 4.0, // toward pink
+    peachBoost: 0.12,
+    pinkBoost: 0.1,
+    redOrangeBalance: 0.06,
+  },
+
+  // ROSY CHEEKS AND LIPS (applied through the cheek and lip color masks)
+  blushAndLips: {
+    enabled: true,
+    cheekPinkBoost: 0.2,
+    cheekPeachBoost: 0.12,
+    cheekLuminanceLift: 0.03,
+    lipRedBoost: 0.2,
+    lipPinkBoost: 0.12,
+    lipSaturationBoost: 0.14,
+    lipLuminanceLift: 0.025,
+  },
+
+  // COLOR MASKS (no face detection: hue windows + saturation/brightness gates).
+  // Hues in degrees; full effect within ±width, fading out over another width.
+  masks: {
+    skinHue: 24,
+    skinHueWidth: 16,
+    skinMinSaturation: 0.08,
+    skinMaxSaturation: 0.62,
+    cheekHue: 10,
+    cheekHueWidth: 7,
+    cheekMinSaturation: 0.2,
+    lipHue: 354,
+    lipHueWidth: 12,
+    lipMinSaturation: 0.22,
   },
 
   // SOFT OPTICAL DIFFUSION
-  softFocus: { enabled: true, gaussianSigma: 1.5, blurMix: 0.15 },
+  softFocus: { enabled: true, gaussianSigma: 1.7, blurMix: 0.18 },
 
   // DREAMY HIGHLIGHT BLOOM
-  bloom: { enabled: true, threshold: 0.72, softKnee: 0.1, blurSigma: 12, opacity: 0.16, blendMode: "screen" },
+  bloom: { enabled: true, threshold: 0.74, softKnee: 0.1, blurSigma: 12, opacity: 0.15, blendMode: "screen" },
 
   // ANALOG FILM GRAIN
-  grain: { enabled: true, luminanceStdDev: 0.012, chromaStdDev: 0.004, monochromeMix: 0.85 },
+  grain: { enabled: true, luminanceStdDev: 0.011, chromaStdDev: 0.0035, monochromeMix: 0.88 },
 
-  // SOFT FADED PHOTOGRAPHIC EDGES
-  edgeFade: { enabled: true, color: "#FFF8F3", widthFraction: 0.075, maxOpacity: 0.82, falloffPower: 1.4 },
+  // SOFT FADED PHOTOGRAPHIC EDGES (≈70% lighter than the first version)
+  edgeFade: { enabled: true, color: "#FFF8F4", widthFraction: 0.05, maxOpacity: 0.25, falloffPower: 1.55 },
 
   // OTHER
   vignette: 0,
@@ -80,6 +111,104 @@ function hexToRgb(hex: string): [number, number, number] {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
+// ── CPU mirror of the grade shader (fallback when WebGL is unavailable) ──────
+
+const smooth = (e0: number, e1: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
+  return t * t * (3 - 2 * t);
+};
+const luma = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+function hueWindow(h: number, center: number, width: number) {
+  let d = Math.abs(h - center);
+  d = Math.min(d, 1 - d);
+  return 1 - smooth(width, 2 * width, d);
+}
+function rgb2hsv([r, g, b]: number[]): [number, number, number] {
+  const mx = Math.max(r, g, b);
+  const mn = Math.min(r, g, b);
+  const d = mx - mn;
+  let h = 0;
+  if (d > 0) {
+    if (mx === r) h = ((g - b) / d + 6) % 6;
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  return [h / 6, mx > 0 ? d / mx : 0, mx];
+}
+function hsv2rgb(h: number, s: number, v: number): number[] {
+  return [0, 2 / 3, 1 / 3].map((o) => {
+    const p = Math.abs(((h + 1 + o) % 1) * 6 - 3);
+    return v * (1 + (clamp01(p - 1) - 1) * s);
+  });
+}
+
+/** Stage 1 for one pixel (0–1 RGB), identical in intent to GRADE_FRAG. */
+export function gradePixel(rgb: number[], P: DreamFilmPreset = DREAM_FILM): number[] {
+  const ex = Math.pow(2, P.exposureEV);
+  let c = rgb.map((v) => (v * ex - 0.5) * P.contrast + 0.5);
+  let lum = luma(c);
+  const gains = [
+    P.redGain * (1 + P.temperatureShift),
+    P.greenGain * (1 - P.tintShift),
+    P.blueGain * (1 - P.temperatureShift),
+  ];
+  c = c.map((v, k) => {
+    v = lum + (v - lum) * P.saturation;
+    v = Math.pow(Math.max(0, v), 1 / P.gamma);
+    v = (P.blackLift + v * (1 - P.blackLift)) * gains[k];
+    return v * (1 - P.highlightCompression * smooth(0.5, 1, v));
+  });
+  lum = luma(c);
+  const hw = P.highlightWarmth * smooth(0.45, 1, lum);
+  const sb = P.shadowBlueTint * (1 - smooth(0, 0.5, lum));
+  c = [c[0] + hw - 0.4 * sb, c[1] + 0.5 * hw, c[2] - 0.25 * hw + sb].map(clamp01);
+
+  const m = P.masks;
+  const sk = P.skinTones;
+  const bl = P.blushAndLips;
+  const hsv = rgb2hsv(c);
+  const lipW = bl.enabled ? hueWindow(hsv[0], m.lipHue / 360, m.lipHueWidth / 360) * smooth(m.lipMinSaturation, m.lipMinSaturation + 0.15, hsv[1]) : 0;
+  const cheekW = bl.enabled
+    ? hueWindow(hsv[0], m.cheekHue / 360, m.cheekHueWidth / 360) *
+      smooth(m.cheekMinSaturation, m.cheekMinSaturation + 0.12, hsv[1]) *
+      smooth(0.3, 0.5, hsv[2]) *
+      (1 - lipW)
+    : 0;
+  let skinW = sk.enabled
+    ? hueWindow(hsv[0], m.skinHue / 360, m.skinHueWidth / 360) *
+      smooth(m.skinMinSaturation, m.skinMinSaturation + 0.08, hsv[1]) *
+      (1 - smooth(m.skinMaxSaturation, m.skinMaxSaturation + 0.15, hsv[1])) *
+      smooth(0.18, 0.35, hsv[2])
+    : 0;
+  skinW = Math.max(skinW, sk.enabled ? cheekW : 0);
+
+  if (skinW > 0) {
+    c = hsv2rgb((hsv[0] - (sk.hueShiftDegrees / 360) * skinW + 1) % 1, hsv[1], hsv[2]);
+    lum = luma(c);
+    c = c.map((v) => lum + (v - lum) * (1 - sk.saturationSoftness * skinW));
+    const peach = [0.1, 0.035, -0.05];
+    const pink = [0.07, -0.03, 0.03];
+    c = c.map((v, k) => v + skinW * (sk.peachBoost * peach[k] + sk.pinkBoost * pink[k]));
+    c[1] -= skinW * sk.redOrangeBalance * 0.25 * c[1];
+    const lift = skinW * sk.luminanceLift * (1 - smooth(0.75, 1, lum));
+    c = c.map((v) => v + lift);
+  }
+  if (cheekW > 0) {
+    const pink = [0.09, -0.03, 0.03];
+    const peach = [0.08, 0.03, -0.04];
+    c = c.map((v, k) => v + cheekW * (bl.cheekPinkBoost * pink[k] + bl.cheekPeachBoost * peach[k] + bl.cheekLuminanceLift));
+  }
+  if (lipW > 0) {
+    lum = luma(c);
+    const red = [0.12, -0.04, -0.03];
+    const pink = [0.06, -0.03, 0.05];
+    c = c.map((v) => lum + (v - lum) * (1 + bl.lipSaturationBoost * lipW));
+    c = c.map((v, k) => v + lipW * (bl.lipRedBoost * red[k] + bl.lipPinkBoost * pink[k] + bl.lipLuminanceLift));
+  }
+  return c.map(clamp01);
+}
+
 // ── shaders ──────────────────────────────────────────────────────────────────
 
 const VERT = `
@@ -105,10 +234,18 @@ uniform sampler2D u_src;
 uniform vec4 u_crop;      // x0, y0 (bottom-origin uv), w, h in uv
 uniform float u_mirror;
 uniform float u_exposure, u_contrast, u_saturation, u_gamma, u_blackLift;
+uniform vec2 u_tempTint;  // temperatureShift, tintShift
 uniform vec3 u_gains;
 uniform float u_hiCompress, u_hiWarmth, u_shadowBlue;
-uniform vec4 u_lip;       // hueCenter (0-1), hueWidth (0-1), minSaturation, saturationBoost
-uniform float u_lipDepth;
+uniform vec4 u_skinA;     // luminanceLift, saturationSoftness, hueShift (0-1 turn), peachBoost
+uniform vec2 u_skinB;     // pinkBoost, redOrangeBalance
+uniform vec3 u_cheek;     // pinkBoost, peachBoost, luminanceLift
+uniform vec4 u_lip;       // redBoost, pinkBoost, saturationBoost, luminanceLift
+uniform vec4 u_maskSkin;  // hue, width (0-1 turn), minSat, maxSat
+uniform vec3 u_maskCheek; // hue, width, minSat
+uniform vec3 u_maskLip;   // hue, width, minSat
+
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
 vec3 rgb2hsv(vec3 c) {
   vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -118,33 +255,62 @@ vec3 rgb2hsv(vec3 c) {
   float e = 1.0e-10;
   return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
 }
+vec3 hsv2rgb(vec3 c) {
+  vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+  return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
+float hueWindow(float h, float center, float width) {
+  float d = abs(h - center);
+  d = min(d, 1.0 - d);
+  return 1.0 - smoothstep(width, 2.0 * width, d);
+}
 
 void main() {
   float x = u_mirror > 0.5 ? 1.0 - v_uv.x : v_uv.x;
   vec2 uv = u_crop.xy + vec2(x, v_uv.y) * u_crop.zw;
   vec3 c = texture2D(u_src, uv).rgb;
 
-  c *= u_exposure;                                  // +EV
-  c = (c - 0.5) * u_contrast + 0.5;                 // contrast around mid-grey
-  float lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c = mix(vec3(lum), c, u_saturation);              // saturation
-  c = pow(max(c, 0.0), vec3(1.0 / u_gamma));        // gamma
-  c = u_blackLift + c * (1.0 - u_blackLift);        // lifted blacks
-  c *= u_gains;                                     // gentle warmth
+  // Global film grade.
+  c *= u_exposure;
+  c = (c - 0.5) * u_contrast + 0.5;
+  float lum = dot(c, LUMA);
+  c = mix(vec3(lum), c, u_saturation);
+  c = pow(max(c, 0.0), vec3(1.0 / u_gamma));
+  c = u_blackLift + c * (1.0 - u_blackLift);
+  c *= u_gains * vec3(1.0 + u_tempTint.x, 1.0 - u_tempTint.y, 1.0 - u_tempTint.x);
+  c *= 1.0 - u_hiCompress * smoothstep(0.5, 1.0, c);
+  lum = dot(c, LUMA);
+  c += u_hiWarmth * smoothstep(0.45, 1.0, lum) * vec3(1.0, 0.5, -0.25);           // amber highlights
+  c += u_shadowBlue * (1.0 - smoothstep(0.0, 0.5, lum)) * vec3(-0.4, 0.0, 1.0);
+  c = clamp(c, 0.0, 1.0);
 
-  c *= 1.0 - u_hiCompress * smoothstep(0.5, 1.0, c);              // soft shoulder
-  lum = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c += u_hiWarmth * smoothstep(0.5, 1.0, lum) * vec3(1.0, 0.45, -0.2);    // peach highlights
-  c += u_shadowBlue * (1.0 - smoothstep(0.0, 0.5, lum)) * vec3(-0.4, 0.0, 1.0); // cool shadows
+  // Color masks: lips (red-pink), cheeks (rosy skin), skin (peach/orange).
+  vec3 hsv = rgb2hsv(c);
+  float lipW = hueWindow(hsv.x, u_maskLip.x, u_maskLip.y) * smoothstep(u_maskLip.z, u_maskLip.z + 0.15, hsv.y);
+  float cheekW = hueWindow(hsv.x, u_maskCheek.x, u_maskCheek.y) * smoothstep(u_maskCheek.z, u_maskCheek.z + 0.12, hsv.y)
+    * smoothstep(0.3, 0.5, hsv.z) * (1.0 - lipW);
+  float skinW = hueWindow(hsv.x, u_maskSkin.x, u_maskSkin.y)
+    * smoothstep(u_maskSkin.z, u_maskSkin.z + 0.08, hsv.y) * (1.0 - smoothstep(u_maskSkin.w, u_maskSkin.w + 0.15, hsv.y))
+    * smoothstep(0.18, 0.35, hsv.z);
+  skinW = max(skinW, cheekW);
 
-  // Lip & blush color: boost saturation of red-pink hues only.
-  vec3 hsv = rgb2hsv(clamp(c, 0.0, 1.0));
-  float dh = abs(hsv.x - u_lip.x);
-  dh = min(dh, 1.0 - dh);
-  float hueW = 1.0 - smoothstep(u_lip.y, 2.0 * u_lip.y, dh);
-  float lipW = hueW * smoothstep(u_lip.z, u_lip.z + 0.15, hsv.y);
-  float l2 = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  c = mix(vec3(l2), c, 1.0 + u_lip.w * lipW) * (1.0 - u_lipDepth * lipW);
+  // Skin: nudge hue toward pink, then creamy peach-pink and brighter, softer.
+  hsv.x = fract(hsv.x - u_skinA.z * skinW);
+  c = hsv2rgb(hsv);
+  lum = dot(c, LUMA);
+  c = mix(vec3(lum), c, 1.0 - u_skinA.y * skinW);
+  c += skinW * (u_skinA.w * vec3(0.10, 0.035, -0.05) + u_skinB.x * vec3(0.07, -0.03, 0.03));
+  c.g -= skinW * u_skinB.y * 0.25 * c.g;                                          // less orange, more red
+  c += skinW * u_skinA.x * (1.0 - smoothstep(0.75, 1.0, lum));                     // lift, but don't blow out
+
+  // Rosy cheeks.
+  c += cheekW * (u_cheek.x * vec3(0.09, -0.03, 0.03) + u_cheek.y * vec3(0.08, 0.03, -0.04) + u_cheek.z);
+
+  // Lips: redder, a touch pinker, more saturated, slightly lifted.
+  lum = dot(c, LUMA);
+  c = mix(vec3(lum), c, 1.0 + u_lip.z * lipW);
+  c += lipW * (u_lip.x * vec3(0.12, -0.04, -0.03) + u_lip.y * vec3(0.06, -0.03, 0.05) + u_lip.w);
+
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);
 }`;
 
@@ -409,12 +575,38 @@ export class DreamFilmRenderer {
       gl.uniform1f(grade.loc("u_gamma"), P.gamma);
       gl.uniform1f(grade.loc("u_blackLift"), P.blackLift);
       gl.uniform3f(grade.loc("u_gains"), P.redGain, P.greenGain, P.blueGain);
+      gl.uniform2f(grade.loc("u_tempTint"), P.temperatureShift, P.tintShift);
       gl.uniform1f(grade.loc("u_hiCompress"), P.highlightCompression);
       gl.uniform1f(grade.loc("u_hiWarmth"), P.highlightWarmth);
       gl.uniform1f(grade.loc("u_shadowBlue"), P.shadowBlueTint);
-      const lip = P.lipColor;
-      gl.uniform4f(grade.loc("u_lip"), lip.hueCenter / 360, lip.hueWidth / 360, lip.minSaturation, lip.enabled ? lip.saturationBoost : 0);
-      gl.uniform1f(grade.loc("u_lipDepth"), lip.enabled ? lip.depth : 0);
+      const sk = P.skinTones;
+      const on = (enabled: boolean, v: number) => (enabled ? v : 0);
+      gl.uniform4f(
+        grade.loc("u_skinA"),
+        on(sk.enabled, sk.luminanceLift),
+        on(sk.enabled, sk.saturationSoftness),
+        on(sk.enabled, sk.hueShiftDegrees / 360),
+        on(sk.enabled, sk.peachBoost),
+      );
+      gl.uniform2f(grade.loc("u_skinB"), on(sk.enabled, sk.pinkBoost), on(sk.enabled, sk.redOrangeBalance));
+      const bl = P.blushAndLips;
+      gl.uniform3f(
+        grade.loc("u_cheek"),
+        on(bl.enabled, bl.cheekPinkBoost),
+        on(bl.enabled, bl.cheekPeachBoost),
+        on(bl.enabled, bl.cheekLuminanceLift),
+      );
+      gl.uniform4f(
+        grade.loc("u_lip"),
+        on(bl.enabled, bl.lipRedBoost),
+        on(bl.enabled, bl.lipPinkBoost),
+        on(bl.enabled, bl.lipSaturationBoost),
+        on(bl.enabled, bl.lipLuminanceLift),
+      );
+      const m = P.masks;
+      gl.uniform4f(grade.loc("u_maskSkin"), m.skinHue / 360, m.skinHueWidth / 360, m.skinMinSaturation, m.skinMaxSaturation);
+      gl.uniform3f(grade.loc("u_maskCheek"), m.cheekHue / 360, m.cheekHueWidth / 360, m.cheekMinSaturation);
+      gl.uniform3f(grade.loc("u_maskLip"), m.lipHue / 360, m.lipHueWidth / 360, m.lipMinSaturation);
     });
 
     const blurPass = (from: Target, base: Target, out: Target, dir: [number, number], sigma: number, mix: number) =>
