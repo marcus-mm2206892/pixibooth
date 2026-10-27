@@ -60,7 +60,7 @@ export function PhotostripPreview({
       role="img"
       aria-label={`${TEMPLATES[template].label} photostrip preview`}
       className={`block h-full w-full ${template === "white" ? "ring-1 ring-pp-blue-line" : ""} ${className}`}
-      style={{ background: TEMPLATES[template].background }}
+      style={{ background: TEMPLATES[template].hex }}
     />
   );
 }

@@ -159,7 +159,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                 role="img"
                 aria-label={`${TEMPLATES[template].label} strip with ${FILTERS[filter].label} filter`}
                 className={`block h-full w-full ${template === "white" ? "ring-1 ring-pp-blue-line" : ""}`}
-                style={{ background: TEMPLATES[template].background }}
+                style={{ background: TEMPLATES[template].hex }}
               />
             </div>
             {/* Frame source for the preview; never shown, never captured. */}
@@ -196,13 +196,13 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
           </Button>
         </div>
 
-        {/* Strip colors: rounded squares; the selected one blinks like an arcade cursor. */}
+        {/* Strip colors: rounded squares (one row when wide); the selected one blinks like an arcade cursor. */}
         <section data-enter style={{ gridArea: "colors" }} className="flex min-h-0 flex-col gap-3">
           <h2 className="flex flex-wrap items-baseline gap-x-3 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">
             Strip color <Jp className="opacity-80">色</Jp>
             <span className="font-pixel text-lg normal-case tracking-normal text-pp-navy">{TEMPLATES[template].label}</span>
           </h2>
-          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 wide:flex wide:flex-wrap wide:gap-5 [@media(max-height:500px)]:flex [@media(max-height:500px)]:flex-wrap">
+          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 wide:flex wide:items-start wide:gap-[clamp(10px,1.5vw,20px)] [@media(max-height:500px)]:flex [@media(max-height:500px)]:flex-wrap">
             {TEMPLATE_ORDER.map((t) => {
               const selected = t === template;
               const style = TEMPLATES[t];
@@ -221,12 +221,12 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     engine.setTemplate(t);
                     bump(cards.current[t]);
                   }}
-                  className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl wide:size-[clamp(56px,9.5vh,92px)] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
+                  className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl wide:aspect-square wide:size-auto wide:min-w-0 wide:shrink wide:basis-[clamp(56px,9.5vh,92px)] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
                     selected ? "animate-ring-blink" : "ring-1 ring-pp-navy/20"
                   }`}
-                  style={{ background: style.background }}
+                  style={{ background: style.swatch }}
                 >
-                  {selected && <PixelStar size={18} color={style.logo === "white" ? "#FFFFFF" : "var(--pp-navy)"} />}
+                  {selected && <PixelStar size={18} color={style.dark ? "#FFFFFF" : "var(--pp-navy)"} />}
                 </button>
               );
             })}

@@ -16,15 +16,15 @@ export const STRIP = {
   slotHeight: 390,
   /** Date stamp: right-aligned to the frames' right edge, on the artwork logo's center line. */
   dateRight: 569,
-  dateCenterY: 1724,
+  dateCenterY: 1722,
 } as const;
 
 /** Photo windows of the official strip artwork, in 600×1800 px (measured; identical for every color). */
 export const SLOTS = [
   { x: 33, y: 32, w: 536, h: 393 },
-  { x: 33, y: 440, w: 536, h: 392 },
-  { x: 33, y: 851, w: 536, h: 387 },
-  { x: 33, y: 1255, w: 536, h: 393 },
+  { x: 33, y: 440, w: 536, h: 393 },
+  { x: 33, y: 852, w: 536, h: 386 },
+  { x: 33, y: 1256, w: 536, h: 393 },
 ] as const;
 
 export const SLOT_ASPECT = STRIP.slotWidth / STRIP.slotHeight;
@@ -45,7 +45,12 @@ export type TemplateStyle = {
   hex: string;
   /** CSS background of the picker swatch. */
   swatch: string;
-  /** Official strip artwork, rasterized at 600×1800 from assets/color photo strips/<name> strip.svg. */
+  /**
+   * Official strip artwork, rasterized at 600×1800 from assets/color photo strips/<name> strip.svg
+   * (canvas can't reliably draw those image-embedding SVGs on iPad Safari). The SVG's opaque strip
+   * (viewBox 0,0.4 to 72,215) is scaled uniformly to 1800 px tall and centered, trimming ~2 px of
+   * solid border per side; nothing is redrawn or stretched.
+   */
   src: string;
   /** Date stamp color. */
   dateInk: string;
