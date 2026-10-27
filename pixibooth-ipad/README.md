@@ -1,6 +1,6 @@
 # pixipocket — iPad photo booth (Phase 1 prototype)
 
-A browser-only photo booth with a cobalt-and-white, pixel-art "Japanese ID-photo kiosk" look. Flow: **welcome → style (8 strip colors + 3 filters, previewed live on the customers themselves) → camera → four 5-second shots with pose tips and countdown sounds → Keep screen (strip + one optional retake + mock QR) → animated thank-you → back to welcome**. The strip is a real 600×1800 px (2×6 in at 300 ppi) PNG with the pixipocket logo and date in its footer. Nothing is uploaded and the QR is a non-functional illustration. Photos live in memory for the current session only.
+A browser-only photo booth with a cobalt-and-white, pixel-art "Japanese ID-photo kiosk" look. Flow: **welcome → style (10 strip colors + 3 filters, previewed live on the customers themselves) → camera → four 5-second shots with pose tips and countdown sounds → Keep screen (strip + one optional retake + mock QR) → animated thank-you → back to welcome**. The strip is a real 600×1800 px (2×6 in at 300 ppi) PNG with the pixipocket logo and date in its footer. Nothing is uploaded and the QR is a non-functional illustration. Photos live in memory for the current session only.
 
 ## Run on a Mac
 
@@ -46,7 +46,7 @@ Booth tips: keep the iPad in **landscape** (groups fit better). Turn on **Guided
 |---|---|
 | `lib/boothEngine.ts` | Finite state machine (template → filter → camera → countdown/capture/pose-break → review → result), rAF/`performance.now` timers, cancellation tokens, pause/resume, wake lock, shutter sound. Lives outside React. |
 | `lib/camera.ts` | `CameraAdapter` interface + `BrowserCameraAdapter` (getUserMedia, center-cover-cropped and optionally mirrored still capture, error mapping). Swap this for a future PC/DSLR adapter. |
-| `lib/photostrip.ts` | 600×1800 layout, the 8 strip colors (with black/white logo choice), and `renderStrip()` / `renderStripPng()` used by thumbnails, preview and export. Footer = real logo PNG bottom-left, date (`DD.MM.YYYY`) directly below. |
+| `lib/photostrip.ts` | 600×1800 layout, the 10 strip colors (name, swatch, official artwork, date color) in one `TEMPLATES` table, and `renderStrip()` / `renderStripPng()` used by thumbnails, preview and export. The logo is part of the artwork (`public/strips/<color>.png`, rasterized from `assets/color photo strips/`); the date (`YYYY年M月D日`) is drawn bottom-right on the logo's center line. |
 | `lib/filters.ts` | Three filters (Auto = original, Vintage = the Canva warm-B&W recipe, Dream Film = see `lib/dreamFilm.ts`) as pure canvas pixel operations, so iPad Safari exports match the preview; CSS approximations for the live camera only. |
 | `lib/dreamFilm.ts` | Dream Film: the editable `DREAM_FILM` preset and a 5-stage WebGL pipeline (grade → soft focus → bloom → grain → edge fade) used for the live camera, previews and saved photos alike; CPU fallback in `filters.ts`. |
 | `lib/poses.ts` | Pose-tip catalog; four distinct prompts per session (cute, cheeky, stylish, freestyle). |
