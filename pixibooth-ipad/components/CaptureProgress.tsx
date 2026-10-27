@@ -40,7 +40,7 @@ function SlotThumb({
         }`}
       >
         {photo ? (
-          <FilteredPhoto photo={photo} filter={filter} width={240} alt={`Photo ${index + 1}`} />
+          <FilteredPhoto photo={photo} filter={filter} width={360} alt={`Photo ${index + 1}`} />
         ) : (
           <div className="flex h-full w-full items-center justify-center font-helvetica text-[clamp(1.1rem,2.8vh,1.6rem)] text-pp-blue-deep/60">{n}</div>
         )}
@@ -66,7 +66,7 @@ export function CaptureProgress({
   activeSlot: number | null;
 }) {
   return (
-    <div className="grid grid-cols-4 gap-2.5" aria-label="Photos taken">
+    <div className="grid grid-cols-2 gap-2.5" aria-label="Photos taken">
       {photos.map((photo, i) => (
         <SlotThumb key={i} photo={photo} index={i} filter={filter} active={activeSlot === i} />
       ))}
