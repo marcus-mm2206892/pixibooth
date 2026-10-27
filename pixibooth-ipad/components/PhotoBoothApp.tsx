@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BoothEngine, isCameraPhase } from "@/lib/boothEngine";
 import { BrowserCameraAdapter } from "@/lib/camera";
 import { WelcomeScreen } from "./WelcomeScreen";
@@ -23,7 +23,6 @@ export default function PhotoBoothApp() {
     };
   }, [engine]);
 
-  const checkCameraAccess = useCallback(() => engine.checkCameraAccess(), [engine]);
   const { phase, session } = state;
 
   const screen = (() => {
@@ -38,14 +37,14 @@ export default function PhotoBoothApp() {
       case "thanks":
         return <ThanksScreen onDone={() => engine.goHome()} />;
       default:
-        return <WelcomeScreen onStart={() => engine.begin()} checkCameraAccess={checkCameraAccess} />;
+        return <WelcomeScreen state={state} engine={engine} />;
     }
   })();
 
   return (
     <>
       {screen}
-      <ShutterFlash count={state.flashCount} />
+      <ShutterFlash peak={state.flashPeak} />
     </>
   );
 }

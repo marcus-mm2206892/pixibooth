@@ -44,8 +44,10 @@ export type BoothState = {
   activeSlot: number | null;
   retakeSlot: number | null;
   countdown: number | null;
-  /** Increments once per successful exposure; drives flash + celebration. */
+  /** Increments once per successful exposure; drives the celebration star. */
   flashCount: number;
+  /** Screen flash held at full white; the frame is captured while this is true. */
+  flashPeak: boolean;
   /** Increments each time a countdown (re)starts; restarts the on-frame timer bar. */
   shotSerial: number;
   cameraStatus: "off" | "starting" | "live";
@@ -81,6 +83,7 @@ function initialState(): BoothState {
     retakeSlot: null,
     countdown: null,
     flashCount: 0,
+    flashPeak: false,
     shotSerial: 0,
     cameraStatus: "off",
     stream: null,
@@ -209,33 +212,12 @@ export class BoothEngine {
     this.camera.attachPreview?.(video);
   }
 
-  /**
-   * Asks for camera permission from the welcome screen, so the browser prompt
-   * appears before the session goes full screen. Returns the error, or null when allowed.
-   */
-  async checkCameraAccess(): Promise<CameraErrorKind | null> {
-    if (this.camera.isLive()) return null;
-    try {
-      const status = await navigator.permissions?.query({ name: "camera" as PermissionName });
-      if (status?.state === "granted") return null;
-    } catch {
-      // Permissions API missing or doesn't know "camera": fall through and ask directly.
-    }
-    try {
-      await this.camera.start(this.state.facing);
-      this.camera.stop();
-      return null;
-    } catch (err) {
-      return toCameraError(err).kind;
-    }
-  }
-
   /** Starts (or restarts) the camera and moves to the camera screen. */
   enableCamera(): Promise<boolean> {
     return this.requestCamera(true);
   }
 
-  /** Starts the camera for the style screen's live preview without navigating. */
+  /** Starts the camera for the welcome mirror / style screen's live preview without navigating. */
   startPreview(): Promise<boolean> {
     if (this.camera.isLive()) return Promise.resolve(true);
     return this.requestCamera(false);
@@ -281,7 +263,7 @@ export class BoothEngine {
     const wasInCamera = isCameraPhase(this.state.phase);
     this.cancelRun();
     this.releaseWakeLock();
-    this.patch({ cameraStatus: "off", stream: null, countdown: null });
+    this.patch({ cameraStatus: "off", stream: null, countdown: null, flashPeak: false });
     if (wasInCamera) this.patch({ phase: "error", error: "ended", errorDetail: null });
   }
 
@@ -362,7 +344,7 @@ export class BoothEngine {
   pause(reason: "hidden" | "user"): boolean {
     if (!isCapturePhase(this.state.phase)) return false;
     this.cancelRun();
-    this.patch({ phase: "paused", countdown: null, pausedBy: reason });
+    this.patch({ phase: "paused", countdown: null, pausedBy: reason, flashPeak: false });
     return true;
   }
 
@@ -424,13 +406,23 @@ export class BoothEngine {
     if (gen !== this.gen || this.captureInFlight) return;
     this.captureInFlight = true;
     const sessionId = this.state.session.id;
-    this.patch({ phase: "capturing", countdown: null });
+    // Flash first: the frame is only grabbed once full white has been on screen
+    // long enough for the camera to see it, then the flash fades.
+    this.patch({ phase: "capturing", countdown: null, flashPeak: true });
+    await this.waitForFlashPeak();
+    if (gen !== this.gen) {
+      this.captureInFlight = false;
+      this.patch({ flashPeak: false });
+      return;
+    }
+    if (this.state.settings.sound) this.audio.shutter();
 
     let frame;
     try {
       frame = await this.camera.capturePhoto({ aspect: SLOT_ASPECT, mirror: this.state.mirror });
     } catch (err) {
       this.captureInFlight = false;
+      this.patch({ flashPeak: false });
       if (gen !== this.gen) return;
       this.cancelRun();
       const e = toCameraError(err);
@@ -438,6 +430,7 @@ export class BoothEngine {
       return;
     }
     this.captureInFlight = false;
+    this.patch({ flashPeak: false });
 
     // The group was discarded while the frame was encoding: drop it.
     if (this.state.session.id !== sessionId) return;
@@ -447,9 +440,7 @@ export class BoothEngine {
     photos[slot] = makeCapturedPhoto(frame);
     const retakesUsed = this.state.session.retakesUsed + (this.state.mode === "retake" ? 1 : 0);
     this.patchSession({ photos, retakesUsed });
-    // Flash + chime only for a frame that was actually saved.
     this.patch({ flashCount: this.state.flashCount + 1 });
-    if (this.state.settings.sound) this.audio.shutter();
 
     // Paused (tab hidden) mid-capture: the shot is kept; Resume continues from here.
     if (gen !== this.gen) return;
@@ -480,6 +471,22 @@ export class BoothEngine {
   }
 
   // ── timing ────────────────────────────────────────────────────────────────
+
+  /**
+   * Resolves once the full-white flash has actually been painted (two frames:
+   * the first runs before that paint, the second after it) and then held for
+   * TIMING.flashPeakHoldMs, which covers the camera's frame latency. A timeout
+   * backs up rAF, which never fires in a hidden tab.
+   */
+  private waitForFlashPeak(): Promise<void> {
+    const painted = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    const fallback = new Promise<void>((resolve) => window.setTimeout(resolve, 100));
+    return Promise.race([painted, fallback]).then(
+      () => new Promise<void>((resolve) => window.setTimeout(resolve, TIMING.flashPeakHoldMs)),
+    );
+  }
 
   private cancelRun() {
     this.gen++;

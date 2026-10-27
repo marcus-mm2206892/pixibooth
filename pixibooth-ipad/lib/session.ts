@@ -3,14 +3,16 @@
 import { pickPoses } from "./poses";
 
 export type TemplateColor =
-  | "white"
-  | "red"
   | "black"
-  | "cobalt"
-  | "powder"
-  | "pink"
-  | "lavender"
-  | "yellow";
+  | "white"
+  | "cherry"
+  | "denim"
+  | "vanilla"
+  | "cloudy"
+  | "sakura"
+  | "matcha"
+  | "butter"
+  | "lavender";
 
 export type FilterId = "none" | "vintage" | "dreamfilm";
 
@@ -48,6 +50,8 @@ export const TIMING = {
   countdownSeconds: 5,
   /** Pose-change break after shots 1–3 (never after the last shot). */
   poseBreakMs: 2000,
+  /** Full-white flash held on screen before the frame is grabbed (camera frame latency). */
+  flashPeakHoldMs: 180,
   /** Short settle after the final/retake exposure so the flash and thumbnail are seen. */
   finishHoldMs: 700,
   /** Style screen time limit; then it continues to the camera with the current picks. */

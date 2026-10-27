@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Camera, FlipHorizontal2, Pause, Play, Reload } from "pixelarticons/react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Camera, Pause, Play, Reload } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import { isCapturePhase } from "@/lib/boothEngine";
 import { ERROR_COPY } from "@/lib/cameraErrors";
@@ -14,8 +14,7 @@ import { DreamFilmLive } from "./DreamFilmLive";
 import { DREAM_FILM } from "@/lib/dreamFilm";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { Button, Jp, PixelFrame, PixelTag } from "./ui";
-
+import { ArtButton, Button, Jp, PixelFrame, PixelTag } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -72,6 +71,8 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const pose = poseSlot !== null && poseSlot >= 0 ? (poses[poseSlot] ?? FALLBACK_POSE) : FALLBACK_POSE;
   const shotNumber = (activeSlot ?? 0) + 1;
   const primaryLabel = isRetake ? `Retake photo ${pad2(retakeSlot + 1)}` : "Press to start!";
+  // One key for the whole 30 s auto-start: the header bar, the ring and the timer above all follow it.
+  const readyKey = autoStart ? `${mode}-${retakeSlot}` : null;
 
   // English status + a short Japanese kiosk label.
   let tag: string;
@@ -109,34 +110,26 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
     <KioskShell
       step={2}
       tone="navy"
-      bodyClassName="pt-3!"
-      timer={{ ms: TIMING.getReadyMs, runKey: autoStart ? `${mode}-${retakeSlot}` : null }}
+      bodyClassName="pt-3! bg-white text-pp-ink"
+      timer={{ ms: TIMING.getReadyMs, runKey: readyKey }}
     >
-      {/* Landscape: preview fills the left; toolbar + status column on the right.
-          Portrait: toolbar, preview, then status stacked. */}
-      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)_auto] gap-3 landscape:grid-cols-[minmax(0,1fr)_min(30%,340px)] landscape:grid-rows-[auto_minmax(0,1fr)] landscape:gap-x-6">
-      <div className="flex flex-wrap items-center justify-end gap-3 landscape:col-start-2 landscape:row-start-1">
-        {phase === "camera-ready" && (
-          <Button
-            variant={mirror ? "inverse" : "outline-inverse"}
-            size="sm"
-            aria-pressed={mirror}
-            onClick={() => engine.toggleMirror()}
-          >
-            <FlipHorizontal2 className="size-5" aria-hidden />
-            Mirror
-          </Button>
-        )}
-      </div>
-
+      {/* Light-blue flare over white (supplied artwork), behind everything. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-cover bg-bottom bg-no-repeat opacity-75"
+        style={{ backgroundImage: "url(/ui/ready-background.webp)" }}
+      />
+      {/* Preview + status panel as one centred group (.snap-row): side by side
+          in landscape, stacked in portrait and on phones. */}
+      <div className="fit-box relative flex min-h-0 flex-1 items-center justify-center phone:flex-none phone:[container-type:normal]">
+        <div className="snap-row">
           {/* Live preview: same 532:390 aspect + center crop as the saved photo. */}
-          <div className="fit-box flex items-center justify-center landscape:col-start-1 landscape:row-span-2 landscape:row-start-1">
-            <div className="fit-slot px-shadow">
+          <div className="snap-preview">
             <PixelFrame
-              edge="bg-white"
+              edge="bg-pp-frame"
               fill="bg-pp-blue-dark"
-              border={6}
-              step={5}
+              border={4}
+              step={0}
               className="h-full w-full"
               innerClassName="relative overflow-hidden"
             >
@@ -272,31 +265,44 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               )}
 
             </PixelFrame>
-            </div>
           </div>
 
-        {/* Status, the big countdown, progress and the one big button. */}
-        <aside className="grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-3 landscape:col-start-2 landscape:row-start-2 landscape:flex landscape:flex-col landscape:items-stretch landscape:justify-center">
+        {/* Mirror, status, the big countdown, progress and the one big button. */}
+        <aside className="snap-aside grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-3 phone:grid-cols-1 wide:flex wide:flex-col wide:items-stretch wide:justify-center">
+          {phase === "camera-ready" && (
+            <ArtButton
+              src="/ui/mirror-button.svg"
+              label="Mirror / Flip"
+              width={219}
+              height={87}
+              className="col-span-2 w-[min(72%,270px)] phone:col-span-1 short:w-[min(66%,240px)]"
+              aria-pressed={mirror}
+              onClick={() => engine.toggleMirror()}
+            />
+          )}
+
           <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex items-center justify-between gap-3">
-            <PixelTag inverse>
-              {tag}
-              <Jp className="ml-1">{tagJa}</Jp>
-            </PixelTag>
-          </div>
+          {!idle && (
+            <div className="flex items-center justify-between gap-3">
+              <PixelTag>
+                {tag}
+                <Jp className="ml-1">{tagJa}</Jp>
+              </PixelTag>
+            </div>
+          )}
 
-          <div className="flex min-h-[clamp(72px,10vh,120px)] items-center landscape:min-h-[clamp(96px,22vh,190px)]" aria-live="assertive">
+          <div className="flex min-h-[clamp(72px,10vh,120px)] items-center wide:min-h-[clamp(96px,22vh,190px)]" aria-live="assertive">
             {phase === "countdown" && countdown !== null ? (
               <span
                 key={countdown}
                 ref={countRef}
-                className="font-pixel text-[clamp(5rem,11vh,8rem)] leading-none tabular-nums landscape:text-[clamp(6rem,24vh,12rem)]"
+                className="font-pixel text-[clamp(5rem,11vh,8rem)] leading-none tabular-nums text-pp-cobalt wide:text-[clamp(6rem,24vh,12rem)]"
               >
                 {countdown}
               </span>
             ) : (
-              <div>
-                <p className="font-pixel text-3xl uppercase leading-tight landscape:text-4xl">
+              <div className="font-helvetica">
+                <p className="text-[clamp(1.8rem,min(5.4vh,3.05cqw),2.75rem)] font-bold phone:text-[2rem] leading-tight text-pp-cobalt">
                   {phase === "capturing"
                     ? "Snap! ★"
                     : phase === "pose-break"
@@ -309,13 +315,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                             ? `Retake photo ${pad2(retakeSlot + 1)}`
                             : "Ready to pose?"}
                 </p>
-                <p className="mt-1 font-pixel text-sm tracking-wider text-white/75">
+                <p className="mt-1 text-[clamp(1.15rem,2.8vh,1.5rem)] leading-snug text-pp-blue-deep">
                   {phase === "pose-break"
-                    ? `PHOTO ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)} IS NEXT`
+                    ? `Photo ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)} is next`
                     : isRetake
-                      ? "ONLY THIS PHOTO IS REPLACED"
-                      : "5-SECOND COUNTDOWN · POSE TIPS · 4 PHOTOS"}
+                      ? "Only this photo is replaced"
+                      : "5-second countdown • Pose tips • 4 photos"}
                 </p>
+                {idle && !isRetake && (
+                  <p lang="ja" className="mt-1 text-[clamp(0.95rem,2.1vh,1.1rem)] leading-snug text-pp-red">
+                    5秒カウントダウン・ポーズのヒント・4枚撮影
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -327,29 +338,57 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos)}
           />
 
-          {idle && (
-            <p className="col-span-2 font-pixel text-xs tracking-widest text-white/75">
-              FILTER: {FILTERS[filter].label.toUpperCase()}
-            </p>
-          )}
-
           {phase === "camera-ready" && (
-            <Button
-              variant="inverse"
-              size="xl"
-              className="col-span-2 w-full"
-              faceClassName="whitespace-nowrap px-4! short:text-[1.4rem]"
+            <ArtButton
+              src="/ui/press-start-button.svg"
+              label={primaryLabel}
+              width={326}
+              height={104}
+              className="col-span-2 w-full justify-self-center phone:col-span-1 narrow:max-w-105 short:w-[94%]"
               disabled={!videoReady}
               onClick={() => engine.startCapture()}
             >
-              <Camera className="size-8" aria-hidden />
-              <span className={isRetake ? "" : "animate-arcade-soft"}>{primaryLabel}</span>
-            </Button>
+              <AutoStartRing ms={TIMING.getReadyMs} runKey={readyKey} />
+            </ArtButton>
           )}
         </aside>
+        </div>
       </div>
-
     </KioskShell>
+  );
+}
+
+const RING_R = 19;
+const RING_LENGTH = 2 * Math.PI * RING_R;
+
+/**
+ * The 30 s auto-start (not the 5 s photo countdown), drawn in the empty icon
+ * area of the Press to Start artwork. A full ring that empties clockwise; it
+ * shares `runKey` and duration with the header bar, so both start in the same
+ * commit and stay in step. Full and still until the camera is ready.
+ */
+function AutoStartRing({ ms, runKey }: { ms: number; runKey: string | null }) {
+  return (
+    <svg
+      viewBox="0 0 48 48"
+      aria-hidden
+      className="pointer-events-none absolute left-[8.2%] top-1/2 h-[46%] -translate-y-1/2 drop-shadow-[0_1px_2px_rgba(10,45,105,0.35)]"
+    >
+      <circle cx="24" cy="24" r={RING_R} fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="5" />
+      <circle
+        key={runKey ?? "idle"}
+        cx="24"
+        cy="24"
+        r={RING_R}
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth="5"
+        strokeDasharray={RING_LENGTH}
+        transform="rotate(-90 24 24) scale(1 -1) translate(0 -48)"
+        className={runKey !== null ? "animate-ring-drain" : undefined}
+        style={{ "--ring-length": `${RING_LENGTH}px`, animationDuration: `${ms}ms` } as CSSProperties}
+      />
+    </svg>
   );
 }
 

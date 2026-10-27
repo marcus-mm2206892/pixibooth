@@ -1,5 +1,5 @@
-// 2×6-inch photostrip geometry and the single compositing function used for
-// template thumbnails, the on-screen preview and the downloaded PNG.
+// 2×6-inch photostrip geometry, the strip colors (official artwork) and the
+// single compositing function used for the on-screen previews and the PNG.
 
 import type { FilterId, TemplateColor } from "./session";
 import type { PhotoSource } from "./photos";
@@ -11,18 +11,22 @@ import { canvasToBlob, coverCrop, get2d, makeCanvas, releaseCanvas } from "./can
 export const STRIP = {
   width: 600,
   height: 1800,
-  marginX: 34,
-  marginTop: 36,
+  /** Camera/capture aspect; the official frames are within 1–2% of it (photos are cover-cropped per frame). */
   slotWidth: 532,
   slotHeight: 390,
-  gap: 28,
-  footerTop: 1680,
-  footerHeight: 120,
-  /** Logo height inside the 120 px footer; width follows the asset's aspect ratio. */
-  logoHeight: 92,
+  /** Date stamp: right-aligned to the frames' right edge, on the artwork logo's center line. */
+  dateRight: 569,
+  dateCenterY: 1724,
 } as const;
 
-export const SLOT_YS = [36, 454, 872, 1290] as const;
+/** Photo windows of the official strip artwork, in 600×1800 px (measured; identical for every color). */
+export const SLOTS = [
+  { x: 33, y: 32, w: 536, h: 393 },
+  { x: 33, y: 440, w: 536, h: 392 },
+  { x: 33, y: 851, w: 536, h: 387 },
+  { x: 33, y: 1255, w: 536, h: 393 },
+] as const;
+
 export const SLOT_ASPECT = STRIP.slotWidth / STRIP.slotHeight;
 
 export const BRAND_NAME = "pixipocket";
@@ -37,34 +41,61 @@ export const LOGO_SRC: Record<LogoVariant, string> = {
 export type TemplateStyle = {
   id: TemplateColor;
   label: string;
-  background: string;
-  /** Footer logo + date variant chosen for contrast on this background. */
-  logo: LogoVariant;
+  /** Main strip color (Cloudy Blue: its darkest stop); also the fill while the artwork loads. */
+  hex: string;
+  /** CSS background of the picker swatch. */
+  swatch: string;
+  /** Official strip artwork, rasterized at 600×1800 from assets/color photo strips/<name> strip.svg. */
+  src: string;
+  /** Date stamp color. */
+  dateInk: string;
+  /** Dark strip: light picker star / empty-slot tint. */
+  dark: boolean;
 };
 
+const strip = (id: TemplateColor, label: string, hex: string, dateInk: string, dark: boolean, swatch = hex): TemplateStyle => ({
+  id,
+  label,
+  hex,
+  swatch,
+  src: `/strips/${id}.png`,
+  dateInk,
+  dark,
+});
+
+/** The single source for every strip color: picker, previews, Keep screen and export all read from here. */
 export const TEMPLATES: Record<TemplateColor, TemplateStyle> = {
-  white: { id: "white", label: "White", background: "#FFFFFF", logo: "black" },
-  red: { id: "red", label: "Classic Red", background: "#C92B3A", logo: "white" },
-  black: { id: "black", label: "Black", background: "#161616", logo: "white" },
-  cobalt: { id: "cobalt", label: "Cobalt Blue", background: "#1854B8", logo: "white" },
-  powder: { id: "powder", label: "Baby Blue", background: "#BFDFFF", logo: "black" },
-  pink: { id: "pink", label: "Blush Pink", background: "#F7B9CE", logo: "black" },
-  lavender: { id: "lavender", label: "Lavender", background: "#CFC0F2", logo: "black" },
-  yellow: { id: "yellow", label: "Butter Yellow", background: "#F5D979", logo: "black" },
+  black: strip("black", "Black", "#000000", "#E8E8E8", true),
+  white: strip("white", "White", "#FFFFFF", "#193158", false),
+  cherry: strip("cherry", "Cherry Red", "#890000", "#E8E8E8", true),
+  denim: strip("denim", "Denim Blue", "#063285", "#E8E8E8", true),
+  vanilla: strip("vanilla", "Vanilla Cream", "#FEF2D9", "#412B28", false),
+  cloudy: strip(
+    "cloudy",
+    "Cloudy Blue",
+    "#83A6EA",
+    "#063286",
+    false,
+    "linear-gradient(180deg, #DBE6FA 0%, #83A6EA 50%, #DBE6FA 100%)",
+  ),
+  sakura: strip("sakura", "Sakura Pink", "#FEDFE1", "#7E191F", false),
+  matcha: strip("matcha", "Matcha Green", "#ACC98B", "#264D43", false),
+  butter: strip("butter", "Butter Yellow", "#F5D979", "#594413", false),
+  lavender: strip("lavender", "Lavender", "#D0C0F2", "#694C9D", false),
 };
 
 export const TEMPLATE_ORDER: TemplateColor[] = [
-  "white",
-  "red",
   "black",
-  "cobalt",
-  "powder",
-  "pink",
+  "white",
+  "cherry",
+  "denim",
+  "vanilla",
+  "cloudy",
+  "sakura",
+  "matcha",
+  "butter",
   "lavender",
-  "yellow",
 ];
-
-const INK: Record<LogoVariant, string> = { black: "#111111", white: "#FFFFFF" };
 
 export type RenderStripOptions = {
   photos: Array<PhotoSource | null>;
@@ -75,23 +106,23 @@ export type RenderStripOptions = {
   date?: Date;
 };
 
-const logos = new Map<LogoVariant, Promise<HTMLImageElement | null>>();
+const artwork = new Map<TemplateColor, Promise<HTMLImageElement | null>>();
 
-/** Loads (once) the real logo PNG; resolves null if it can't load so export still works. */
-function loadLogo(variant: LogoVariant): Promise<HTMLImageElement | null> {
-  let pending = logos.get(variant);
+/** Loads (once) the strip artwork PNG; resolves null if it can't load so export still works. */
+function loadArtwork(template: TemplateColor): Promise<HTMLImageElement | null> {
+  let pending = artwork.get(template);
   if (!pending) {
     const img = new Image();
     img.decoding = "async";
-    img.src = LOGO_SRC[variant];
+    img.src = TEMPLATES[template].src;
     pending = img.decode().then(
       () => img,
       () => {
-        logos.delete(variant);
+        artwork.delete(template);
         return null;
       },
     );
-    logos.set(variant, pending);
+    artwork.set(template, pending);
   }
   return pending;
 }
@@ -122,8 +153,8 @@ export async function renderStrip(
   const dateFont = `400 ${Math.round(20 * s)}px ${pixel}`;
   const fallbackFont = `800 ${Math.round(40 * s)}px ${display}`;
   const dateText = stripDate(date);
-  const [logo] = await Promise.all([
-    loadLogo(style.logo),
+  const [art] = await Promise.all([
+    loadArtwork(template),
     ensureFont(dateFont, dateText),
     ensureFont(fallbackFont, BRAND_NAME),
   ]);
@@ -134,19 +165,24 @@ export async function renderStrip(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  ctx.fillStyle = style.background;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  const slotW = Math.round(STRIP.slotWidth * s);
-  const slotH = Math.round(STRIP.slotHeight * s);
-  const x = Math.round(STRIP.marginX * s);
+  // The official artwork (strip color, frames, logo). Photos go over its
+  // placeholder windows; an empty slot keeps the artwork's placeholder.
+  if (art) {
+    ctx.drawImage(art, 0, 0, canvas.width, canvas.height);
+  } else {
+    ctx.fillStyle = style.hex;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
 
   // Filter each photo on its own canvas first, then composite, so the
-  // background and footer are never filtered. A source repeated across slots
-  // (the live preview) is filtered once.
-  const filtered = new Map<PhotoSource, HTMLCanvasElement>();
-  const slotFor = (photo: PhotoSource) => {
-    let slot = filtered.get(photo);
+  // artwork is never filtered. A source repeated across slots (the live
+  // preview) is filtered once per slot size.
+  const filtered = new Map<string, HTMLCanvasElement>();
+  const ids = new Map<PhotoSource, number>();
+  const slotFor = (photo: PhotoSource, slotW: number, slotH: number) => {
+    if (!ids.has(photo)) ids.set(photo, ids.size);
+    const key = `${ids.get(photo)}:${slotW}x${slotH}`;
+    let slot = filtered.get(key);
     if (!slot) {
       slot = makeCanvas(slotW, slotH);
       const sctx = get2d(slot);
@@ -154,41 +190,35 @@ export async function renderStrip(
       const crop = coverCrop(photo.width, photo.height, slotW / slotH);
       sctx.drawImage(photo.image, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, slotW, slotH);
       applyFilter(sctx, slotW, slotH, filter, photo.seed);
-      filtered.set(photo, slot);
+      filtered.set(key, slot);
     }
     return slot;
   };
 
-  SLOT_YS.forEach((slotY, i) => {
-    const y = Math.round(slotY * s);
+  SLOTS.forEach((slot, i) => {
     const photo = photos[i];
-    if (photo) {
-      ctx.drawImage(slotFor(photo), x, y);
-    } else {
-      ctx.fillStyle = style.logo === "white" ? "rgba(255, 255, 255, 0.16)" : "rgba(0, 0, 0, 0.08)";
-      ctx.fillRect(x, y, slotW, slotH);
-    }
+    if (!photo) return;
+    const x = Math.round(slot.x * s);
+    const y = Math.round(slot.y * s);
+    const w = Math.round((slot.x + slot.w) * s) - x;
+    const h = Math.round((slot.y + slot.h) * s) - y;
+    ctx.drawImage(slotFor(photo, w, h), x, y);
   });
   filtered.forEach(releaseCanvas);
 
-  // Footer: the logo as large as the footer allows on the left, the date
-  // right-aligned on the same center line.
-  const ink = INK[style.logo];
-  const centerY = (STRIP.footerTop + STRIP.footerHeight / 2) * s;
-  const logoH = STRIP.logoHeight * s;
-  ctx.fillStyle = ink;
+  // Footer: the logo is part of the artwork; the date sits bottom-right on its center line.
+  const centerY = STRIP.dateCenterY * s;
   ctx.textBaseline = "middle";
-  if (logo) {
-    const logoW = logoH * (logo.naturalWidth / logo.naturalHeight);
-    ctx.drawImage(logo, x, centerY - logoH / 2, logoW, logoH);
-  } else {
+  if (!art) {
+    ctx.fillStyle = style.dateInk;
     ctx.font = fallbackFont;
     ctx.textAlign = "left";
-    ctx.fillText(BRAND_NAME, x, centerY);
+    ctx.fillText(BRAND_NAME, SLOTS[0].x * s, centerY);
   }
+  ctx.fillStyle = style.dateInk;
   ctx.font = dateFont;
   ctx.textAlign = "right";
-  ctx.fillText(dateText, canvas.width - x, centerY);
+  ctx.fillText(dateText, STRIP.dateRight * s, centerY);
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 

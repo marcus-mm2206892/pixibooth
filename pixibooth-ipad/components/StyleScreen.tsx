@@ -15,7 +15,7 @@ import { ERROR_COPY } from "@/lib/cameraErrors";
 import { bump } from "@/lib/motion";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { Button, Jp, PixelFrame, PixelTag, ScreenTitle, useEnterAnimation } from "./ui";
+import { ArtButton, Button, Jp, PixelFrame, PixelTag, ScreenTitle, useEnterAnimation } from "./ui";
 
 const FRAME_W = 480;
 const FRAME_H = Math.round(FRAME_W / SLOT_ASPECT);
@@ -145,10 +145,12 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
       ticket={ticketNumber(session)}
       timer={{ ms: TIMING.styleSelectMs, runKey: session.createdAt }}
     >
-      <div className="style-layout min-h-0 flex-1">
+      {/* Size container so the strip column can be exactly as wide as the strip. */}
+      <div className="fit-box flex min-h-0 flex-1 phone:flex-none phone:[container-type:normal]">
+      <div className="style-layout h-full w-full phone:h-auto">
         {/* Live preview of the finished strip: the full height of the screen. */}
         <section data-enter style={{ gridArea: "preview" }} className="flex min-h-0 flex-col gap-2" aria-label="Strip preview">
-          <div className="fit-box relative flex flex-1 items-center justify-center">
+          <div className="fit-box relative flex flex-1 items-center justify-center phone:h-[min(68vh,470px)] phone:flex-none">
             <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.3)]">
               <canvas
                 ref={stripRef}
@@ -200,7 +202,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
             Strip color <Jp className="opacity-80">色</Jp>
             <span className="font-pixel text-lg normal-case tracking-normal text-pp-navy">{TEMPLATES[template].label}</span>
           </h2>
-          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 landscape:flex landscape:flex-wrap landscape:gap-5">
+          <div role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 wide:flex wide:flex-wrap wide:gap-5 [@media(max-height:500px)]:flex [@media(max-height:500px)]:flex-wrap">
             {TEMPLATE_ORDER.map((t) => {
               const selected = t === template;
               const style = TEMPLATES[t];
@@ -219,7 +221,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     engine.setTemplate(t);
                     bump(cards.current[t]);
                   }}
-                  className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl short:size-14 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
+                  className={`relative flex size-16 shrink-0 items-center justify-center rounded-xl wide:size-[clamp(56px,9.5vh,92px)] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy ${
                     selected ? "animate-ring-blink" : "ring-1 ring-pp-navy/20"
                   }`}
                   style={{ background: style.background }}
@@ -233,10 +235,11 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
 
         {/* Filters: three cards with the illustrated sample. */}
         <section data-enter style={{ gridArea: "filters" }} className="flex min-h-0 flex-col gap-3">
-          <h2 className="font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">
-            Filter <Jp className="ml-1 opacity-80">フィルター</Jp>
-          </h2>
-          <div className="fit-box flex flex-1 items-start justify-start portrait:overflow-y-auto portrait:[container-type:normal]">
+          {/* Wide: label + cards centred in the space left between the colors and the button. */}
+          <div className="fit-box flex flex-1 flex-col items-start justify-start gap-3 wide:justify-center narrow:overflow-y-auto narrow:[container-type:normal] phone:overflow-visible">
+            <h2 className="font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue">
+              Filter <Jp className="ml-1 opacity-80">フィルター</Jp>
+            </h2>
             <div role="radiogroup" aria-label="Photo filter" className="filter-grid" style={{ "--cols": FILTER_ORDER.length } as React.CSSProperties}>
               {FILTER_ORDER.map((f) => {
                 const selected = f === filter;
@@ -261,9 +264,9 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                       edge={selected ? "bg-pp-navy animate-edge-blink" : "bg-pp-blue-line"}
                       fill={selected ? "bg-pp-blue-soft" : "bg-white"}
                       border={selected ? 4 : 2}
-                      innerClassName="flex items-center gap-3 p-2.5 landscape:flex-col landscape:items-stretch landscape:gap-2"
+                      innerClassName="flex items-center gap-3 p-2.5 wide:flex-col wide:items-stretch wide:gap-2"
                     >
-                      <div className="relative w-[40%] shrink-0 landscape:w-full">
+                      <div className="relative w-[40%] max-w-50 shrink-0 wide:w-full wide:max-w-none">
                         <FilterSample filter={f} />
                         {selected && (
                           <span className="animate-arcade absolute left-0 top-0 bg-pp-navy px-2 py-0.5 font-pixel text-xs tracking-widest text-white">
@@ -273,10 +276,10 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                       </div>
                       <span className="flex min-w-0 flex-1 items-center justify-between gap-2 px-1">
                         <span className="min-w-0">
-                          <span className="block truncate font-label text-xl font-bold uppercase leading-tight tracking-wide text-pp-navy">
+                          <span className="block truncate font-label text-xl font-bold uppercase leading-tight tracking-wide text-pp-navy wide:text-2xl">
                             {info.label}
                           </span>
-                          <span className="block truncate text-sm text-pp-ink/70">{info.description}</span>
+                          <span className="block truncate text-base text-pp-ink/70">{info.description}</span>
                         </span>
                         {selected && <PixelStar size={20} color="var(--pp-navy)" />}
                       </span>
@@ -290,24 +293,25 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
 
         <div data-enter style={{ gridArea: "cta" }} className="flex flex-wrap items-center justify-between gap-4">
           {liveNow ? (
-            <p className="font-pixel text-sm text-pp-navy portrait:hidden">
+            <p className="font-pixel text-lg text-pp-navy narrow:hidden">
               {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
             </p>
           ) : (
-            <p className="max-w-md text-sm text-pp-ink/80 portrait:w-full portrait:text-center" role="status">
+            <p className="max-w-md text-base text-pp-ink/80 narrow:w-full narrow:text-center" role="status">
               {errorCopy ? errorCopy.body : "Allow camera access to continue."}
             </p>
           )}
-          <Button
-            size="xl"
-            className="portrait:w-full"
+          <ArtButton
+            src="/ui/continue-button.svg"
+            label="Continue to camera"
+            width={360}
+            height={115}
+            className="h-[clamp(76px,12vh,112px)] narrow:mx-auto narrow:h-auto narrow:w-full narrow:max-w-110"
             disabled={!liveNow}
             onClick={() => engine.showCamera()}
-          >
-            <Camera className="size-8" aria-hidden />
-            Continue to camera
-          </Button>
+          />
         </div>
+      </div>
       </div>
     </KioskShell>
   );

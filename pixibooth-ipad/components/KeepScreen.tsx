@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, Check, Undo } from "pixelarticons/react";
+import { Check, Undo } from "pixelarticons/react";
 import type { PhotoSession } from "@/lib/session";
 import { MAX_RETAKES, ticketNumber } from "@/lib/session";
 import { FilteredPhoto } from "./FilteredPhoto";
@@ -10,7 +10,7 @@ import { MockQr } from "./MockQr";
 import { PhotostripPreview } from "./PhotostripPreview";
 import { PixelStar } from "./PixelStar";
 import { StarCelebration } from "./StarCelebration";
-import { Button, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
+import { ArtButton, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -33,8 +33,8 @@ export function KeepScreen({
   const retakesLeft = Math.max(0, MAX_RETAKES - session.retakesUsed);
 
   return (
-    <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)}>
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-5 landscape:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] landscape:grid-rows-1 landscape:gap-6">
+    <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)} bodyClassName="narrow:overflow-y-auto">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto] gap-5 narrow:h-[max(100%,960px)] narrow:flex-none phone:h-auto phone:flex-none phone:grid-rows-none wide:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] wide:grid-rows-1 wide:gap-6">
         {/* Left panel: the strip and the one-time retake. */}
         <section data-enter className="flex min-h-0">
           <PixelFrame
@@ -42,13 +42,13 @@ export function KeepScreen({
             fill="bg-pp-blue-soft"
             border={2}
             className="w-full"
-            innerClassName="relative grid min-h-0 grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] grid-rows-[auto_minmax(0,1fr)] gap-x-6 gap-y-4 p-4"
+            innerClassName="relative grid min-h-0 grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] grid-rows-[auto_minmax(0,1fr)] gap-x-6 gap-y-4 p-4 wide:grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)] phone:grid-cols-1 phone:grid-rows-none"
           >
             <RegMarks />
 
             {/* The one rule, impossible to miss. */}
             <div
-              className={`col-span-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 py-2.5 text-center ${
+              className={`col-span-2 flex flex-wrap items-center justify-center phone:col-span-1 gap-x-3 gap-y-1 px-4 py-2.5 text-center ${
                 retakesLeft > 0 ? "bg-pp-navy text-white" : "bg-pp-blue-light text-pp-navy"
               }`}
             >
@@ -66,7 +66,7 @@ export function KeepScreen({
             </div>
 
             <div className="flex min-h-0 flex-col items-center gap-2">
-              <div className="fit-box relative flex w-full flex-1 items-center justify-center">
+              <div className="fit-box relative flex w-full flex-1 items-center justify-center phone:h-[min(70vh,480px)] phone:flex-none">
                 <StarCelebration />
                 <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.35)]">
                   <PhotostripPreview
@@ -82,9 +82,9 @@ export function KeepScreen({
               </p>
             </div>
 
-            {/* Pick a single photo, then confirm with one button. */}
-            <div className="flex min-h-0 flex-col gap-3">
-              <p className="text-base leading-snug text-pp-ink">
+            {/* Pick a single photo, then confirm with one button; text, grid and button centred together. */}
+            <div className="fit-box flex min-h-0 flex-col items-center justify-center-safe gap-4 phone:[container-type:normal]">
+              <p className="keep-thumbs-width text-lg leading-snug text-pp-ink">
                 {retakesLeft > 0 ? (
                   <>
                     Not happy with a photo? Tap the one you want to redo, then press{" "}
@@ -94,8 +94,7 @@ export function KeepScreen({
                   "All four photos are kept. Looking good!"
                 )}
               </p>
-              <div className="fit-box flex flex-1 items-start justify-center">
-                <div role="radiogroup" aria-label="Choose one photo to retake" className="fit-slot grid grid-cols-2 grid-rows-2 gap-3">
+                <div role="radiogroup" aria-label="Choose one photo to retake" className="keep-thumbs grid grid-cols-2 grid-rows-2 gap-3">
                   {session.photos.map((photo, i) => {
                     if (!photo) return null;
                     const chosen = selected === i;
@@ -137,18 +136,16 @@ export function KeepScreen({
                     );
                   })}
                 </div>
-              </div>
               {retakesLeft > 0 && (
-                <Button
-                  variant="danger"
-                  size="lg"
-                  className="w-full"
+                <ArtButton
+                  src={selected === null ? "/ui/retake-button-idle.svg" : `/ui/retake-button-${pad2(selected + 1)}.svg`}
+                  label={selected === null ? "Tap a photo to retake" : `Retake photo ${pad2(selected + 1)}`}
+                  width={428}
+                  height={104}
+                  className="w-full max-w-110"
                   disabled={selected === null}
                   onClick={() => selected !== null && onRetake(selected)}
-                >
-                  <Undo className="size-6" aria-hidden />
-                  {selected === null ? "Tap a photo to choose" : `Retake photo ${pad2(selected + 1)}`}
-                </Button>
+                />
               )}
             </div>
           </PixelFrame>
@@ -160,10 +157,10 @@ export function KeepScreen({
             edge="bg-pp-blue-line"
             border={2}
             className="w-full"
-            innerClassName="relative flex min-h-0 flex-col items-center justify-center gap-4 p-5 text-center portrait:flex-row portrait:flex-wrap portrait:gap-x-8"
+            innerClassName="relative flex min-h-0 flex-col items-center justify-center gap-4 p-5 text-center narrow:flex-row narrow:flex-wrap narrow:gap-x-8"
           >
             <RegMarks />
-            <div className="portrait:w-full">
+            <div className="narrow:w-full">
               <p className="font-label text-base font-bold tracking-[0.18em] text-pp-blue">
                 03 / KEEP <Jp className="ml-2 opacity-80">完成！</Jp>
               </p>
@@ -178,7 +175,7 @@ export function KeepScreen({
                 <PixelFrame edge="bg-pp-navy" border={6} step={6} innerClassName="relative p-3">
                   <MockQr
                     seed={session.id}
-                    className="w-[clamp(170px,min(36vh,28vw),300px)] portrait:w-[min(20vh,34vw,230px)]"
+                    className="w-[clamp(170px,min(38vh,30vw),320px)] narrow:w-[min(20vh,34vw,230px)] phone:w-[min(62vw,240px)]"
                   />
                 </PixelFrame>
               </div>
@@ -186,10 +183,14 @@ export function KeepScreen({
               <Jp className="text-sm text-pp-blue">写真のダウンロードはこちら</Jp>
             </div>
 
-            <Button size="xl" className="w-full max-w-sm portrait:w-auto" onClick={onFinish}>
-              <span className="animate-arcade-soft">Finish</span>
-              <ArrowRight className="size-8" aria-hidden />
-            </Button>
+            <ArtButton
+              src="/ui/finish-button.svg"
+              label="Finish"
+              width={360}
+              height={115}
+              className="w-full max-w-sm narrow:h-[clamp(76px,10vh,104px)] narrow:w-auto phone:h-auto phone:w-full"
+              onClick={onFinish}
+            />
           </PixelFrame>
         </section>
       </div>

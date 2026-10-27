@@ -167,12 +167,12 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
         </span>
       ))}
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center">
-        <span data-mascot className="inline-block">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-3">
+        <span data-mascot className="inline-block [@media(max-height:500px)]:scale-50 [@media(max-height:500px)]:-my-8">
           <PixelStar variant="duo" size={120} color="#FFFFFF" accent="var(--pp-blue)" />
         </span>
 
-        <h1 className="flex font-pixel text-[clamp(3.5rem,11vw,8rem)] leading-none" aria-label={TITLE}>
+        <h1 className="flex font-pixel text-[clamp(3rem,min(11vw,15vh),8rem)] leading-none" aria-label={TITLE}>
           {[...TITLE].map((ch, i) => (
             <span key={i} data-letter aria-hidden className="inline-block" style={{ opacity: 0 }}>
               <span data-wave className="inline-block">
@@ -186,13 +186,13 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
         </p>
 
         <div data-fade className="max-w-2xl">
-          <p className="font-pixel text-2xl leading-snug">You may exit the photo booth now to get your photos printed.</p>
+          <p className="font-pixel text-2xl leading-snug [@media(max-height:500px)]:text-xl">You may exit the photo booth now to get your photos printed.</p>
           <p className="mt-2 text-lg text-white/75">
             <Jp>ブースを出て、プリントをお受け取りください</Jp>
           </p>
         </div>
 
-        <div data-fade className="mt-4 flex flex-col items-center gap-3">
+        <div data-fade className="mt-4 flex flex-col items-center gap-3 [@media(max-height:500px)]:mt-1">
           <Button
             variant="inverse"
             size="lg"

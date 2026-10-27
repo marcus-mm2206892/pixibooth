@@ -146,6 +146,8 @@ export class BrowserCameraAdapter implements CameraAdapter {
     const video = this.video;
     if (!video || !this.isLive()) throw new CameraError("ended");
     await waitForVideoReady(video, 2500);
+    // Draw a frame decoded after this call, not one already on screen (it may predate the flash).
+    await nextVideoFrame(video, 120);
 
     const crop = coverCrop(video.videoWidth, video.videoHeight, aspect);
     const scale = Math.min(1, MAX_CAPTURE_WIDTH / crop.sw);
@@ -165,6 +167,18 @@ export class BrowserCameraAdapter implements CameraAdapter {
       releaseCanvas(canvas);
     }
   }
+}
+
+/** Resolves on the next frame the camera delivers to `video` (or after `timeoutMs` where unsupported/stalled). */
+function nextVideoFrame(video: HTMLVideoElement, timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, timeoutMs);
+    if (!("requestVideoFrameCallback" in video)) return;
+    video.requestVideoFrameCallback(() => {
+      window.clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 /** Resolves once the element is playing real frames with known dimensions. */

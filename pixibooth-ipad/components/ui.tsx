@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import {
   useEffect,
   useLayoutEffect,
@@ -40,6 +41,35 @@ export function Button({
           {children}
         </span>
       </span>
+    </button>
+  );
+}
+
+/**
+ * Button whose face is a supplied artwork (public/ui/*.svg). The artwork carries
+ * the visible label, so `label` is the accessible name. Extra children are
+ * overlaid on the artwork (e.g. the Press to Start ring).
+ */
+export function ArtButton({
+  src,
+  label,
+  width,
+  height,
+  className = "",
+  style,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { src: string; label: string; width: number; height: number }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className={`art-btn ${className}`}
+      style={{ aspectRatio: `${width} / ${height}`, ...style }}
+      {...props}
+    >
+      <Image src={src} alt="" width={width} height={height} unoptimized draggable={false} priority />
+      {children}
     </button>
   );
 }

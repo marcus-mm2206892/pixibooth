@@ -2,6 +2,20 @@
 
 /* iPad Safari with its toolbars visible leaves ~740px of height in landscape. */
 @custom-variant short (@media (max-height: 860px));
+/* Layout modes. "wide": tablet/desktop landscape, fixed no-scroll kiosk layout.
+   "narrow": everything else (tablet portrait and phones).
+   "phone": below iPad-portrait width (768px) or very short, where the kiosk
+   becomes a scrolling page. */
+@custom-variant wide (@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px));
+@custom-variant narrow (@media not all and (orientation: landscape) and (min-width: 768px) and (min-height: 501px));
+@custom-variant phone {
+  @media (max-width: 767px) {
+    @slot;
+  }
+  @media (max-height: 500px) {
+    @slot;
+  }
+}
 
 /* pixipocket booth tokens. The app shell is cobalt + navy + white; the eight
    printed-strip colors live in lib/photostrip.ts and never theme the UI. */
@@ -19,6 +33,10 @@
   /* Retake only: the one red action in the booth. */
   --pp-red: #d62828;
   --pp-red-dark: #8f1717;
+  /* Redesigned welcome / ready screens: brand cobalt, muted label blue, camera-frame blue. */
+  --pp-cobalt: #004bbd;
+  --pp-slate: #46689a;
+  --pp-frame: #1458f0;
   --background: var(--pp-white);
   --foreground: var(--pp-ink);
   color-scheme: light;
@@ -36,11 +54,17 @@
   --color-pp-navy: var(--pp-navy);
   --color-pp-ink: var(--pp-ink);
   --color-pp-red: var(--pp-red);
+  --color-pp-cobalt: var(--pp-cobalt);
+  --color-pp-slate: var(--pp-slate);
+  --color-pp-frame: var(--pp-frame);
   /* DotGothic16 is the main typeface; Barlow Condensed is only for small labels. */
   --font-sans: var(--font-dotgothic);
   --font-mono: var(--font-geist-mono);
   --font-pixel: var(--font-dotgothic);
   --font-label: var(--font-barlow-condensed);
+  /* Redesigned welcome / ready screens. Helvetica World is used when installed; Japanese falls back to Hiragino. */
+  --font-helvetica: "Helvetica World", "Helvetica Neue", Helvetica, "Hiragino Sans", "Hiragino Kaku Gothic ProN", Arial,
+    sans-serif;
 }
 
 /* Slightly larger type scale for reading at arm's length (DotGothic is small at 12px). */
@@ -95,6 +119,18 @@ body {
     max(env(safe-area-inset-left), 20px);
 }
 
+/* Phones: the booth scrolls instead of squeezing every screen into the viewport. */
+@media (max-width: 767px), (max-height: 500px) {
+  .kiosk {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .kiosk-body {
+    flex: 1 0 auto;
+  }
+}
+
 @media (max-height: 860px) {
   .kiosk-bar {
     padding-top: max(env(safe-area-inset-top), 6px);
@@ -111,6 +147,188 @@ body {
   container-type: size;
   min-height: 0;
   min-width: 0;
+}
+
+/* Home screen: a design board scaled uniformly (--u = one board unit), so
+   proportions never change with the window. Three arrangements:
+   wide   1140 × 740, two columns (iPad / desktop landscape), fits the screen;
+   narrow  740 × ~1224, one column (iPad portrait), fits the screen;
+   phone   one column that scrolls (420 wide in portrait, 740 in landscape).
+   No nested size containers inside, so every cq unit refers to the stage. */
+.welcome-stage {
+  container-type: size;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.welcome-canvas {
+  --u: min(100cqw / 740, 100cqh / 1224);
+  --mirror: 400;
+  width: calc(var(--u) * 740);
+  flex-shrink: 0;
+  display: grid;
+  justify-items: center;
+  row-gap: calc(var(--u) * 24);
+  grid-template-areas: "intro" "mirror" "rule" "pay" "guide";
+}
+.welcome-intro {
+  grid-area: intro;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.welcome-mirror {
+  grid-area: mirror;
+}
+.welcome-rule {
+  grid-area: rule;
+  width: 100%;
+  height: calc(var(--u) * 2);
+}
+.welcome-pay {
+  grid-area: pay;
+}
+.welcome-guide {
+  grid-area: guide;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: calc(var(--u) * 76);
+}
+.welcome-guide > li:nth-child(even) {
+  border-left: 2px dotted rgb(70 104 154 / 0.4);
+}
+.welcome-guide > li:nth-child(n + 3) {
+  border-top: 2px dotted rgb(70 104 154 / 0.4);
+}
+.pay-row {
+  display: flex;
+  height: calc(var(--u) * 232);
+  gap: calc(var(--u) * 28);
+}
+.pay-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.pay-divider {
+  border-left: 2px dotted rgb(70 104 154 / 0.45);
+}
+
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px) {
+  .welcome-canvas {
+    --u: min(100cqw / 1140, 100cqh / 740);
+    --mirror: 486;
+    width: calc(var(--u) * 1140);
+    height: calc(var(--u) * 740);
+    justify-items: stretch;
+    row-gap: 0;
+    column-gap: calc(var(--u) * 40);
+    grid-template-columns: calc(var(--u) * 610) minmax(0, 1fr);
+    grid-template-rows: calc(var(--u) * 372) calc(var(--u) * 2) minmax(0, 1fr) calc(var(--u) * 86);
+    grid-template-areas:
+      "intro mirror"
+      "rule mirror"
+      "pay mirror"
+      "guide guide";
+  }
+  .welcome-intro {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding-bottom: calc(var(--u) * 22);
+  }
+  .welcome-mirror {
+    justify-self: center;
+  }
+  .welcome-pay {
+    align-self: end;
+    padding-bottom: calc(var(--u) * 20);
+  }
+  .welcome-guide {
+    grid-template-columns: 1fr 1fr 1fr 1.3fr;
+    grid-auto-rows: auto;
+  }
+  .welcome-guide > li + li {
+    border-left: 2px dotted rgb(70 104 154 / 0.4);
+  }
+  .welcome-guide > li:nth-child(n + 3) {
+    border-top: 0;
+  }
+}
+
+/* Phone landscape: the one-column board, scrolling. */
+@media (max-height: 500px) and (min-width: 768px) {
+  .welcome-stage {
+    container-type: inline-size;
+    align-items: flex-start;
+    flex: none;
+  }
+  .welcome-canvas {
+    --u: min(100cqw / 740, 1.15px);
+  }
+}
+
+/* Phone portrait: a narrower board; payment and guide stack. */
+@media (max-width: 767px) {
+  .welcome-stage {
+    container-type: inline-size;
+    align-items: flex-start;
+    flex: none;
+  }
+  .welcome-canvas {
+    --u: min(100cqw / 420, 1.3px);
+    width: calc(var(--u) * 420);
+  }
+  .welcome-intro {
+    flex-direction: column;
+    gap: calc(var(--u) * 20);
+  }
+  .pay-row {
+    flex-direction: column;
+    height: auto;
+    gap: calc(var(--u) * 22);
+  }
+  .pay-col {
+    gap: calc(var(--u) * 10);
+  }
+  .pay-divider {
+    border-left: 0;
+    border-top: 2px dotted rgb(70 104 154 / 0.45);
+  }
+  .welcome-guide {
+    grid-template-columns: 1fr;
+    grid-auto-rows: calc(var(--u) * 72);
+  }
+  .welcome-guide > li:nth-child(even) {
+    border-left: 0;
+  }
+  .welcome-guide > li + li {
+    border-top: 2px dotted rgb(70 104 154 / 0.4);
+  }
+}
+
+/* Keep screen: the 2×2 photo picker, as large as fits above the Retake button. */
+.keep-thumbs {
+  width: min(100cqw, max(220px, (100cqh - 210px) * 532 / 390));
+}
+/* The instructions line up with the grid in landscape only. */
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px) {
+  .keep-thumbs-width {
+    width: min(100cqw, max(220px, (100cqh - 210px) * 532 / 390));
+  }
+}
+.keep-thumbs {
+  aspect-ratio: 532 / 390;
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .keep-thumbs,
+  .keep-thumbs-width {
+    width: min(100%, 560px);
+  }
 }
 
 /* Largest 1:3 strip that fits its .fit-box parent. */
@@ -134,11 +352,11 @@ body {
   gap: var(--gap);
   width: 100%;
 }
-@media (orientation: landscape) {
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px) {
   .filter-grid {
     --cols: 3;
     grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-    width: min(100cqw, var(--cols) * ((100cqh - 92px) * 532 / 390 + 28px) + (var(--cols) - 1) * var(--gap));
+    width: min(100cqw, var(--cols) * ((100cqh - 92px - 36px) * 532 / 390 + 28px) + (var(--cols) - 1) * var(--gap));
   }
 }
 
@@ -155,10 +373,70 @@ body {
     "preview filters"
     "preview cta";
 }
-@media (orientation: landscape) {
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px) {
   .style-layout {
     column-gap: 36px;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 2.15fr);
+    /* Strip column exactly as wide as the height-bound 1:3 strip (+ its label row). */
+    grid-template-columns: min(30cqw, (100cqh - 64px) / 3) minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .style-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: "head" "preview" "colors" "filters" "cta";
+  }
+}
+
+/* Snap screen: camera + side panel as one centred group. Wide: side by side,
+   the camera the largest 532:390 box that leaves room for the panel. Narrow:
+   stacked. Phone: stacked and scrolling, camera full width. */
+.snap-row {
+  --aside: clamp(300px, 27cqw, 400px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+}
+.snap-preview {
+  aspect-ratio: 532 / 390;
+  width: min(100cqw, (100cqh - 430px) * 532 / 390);
+  flex-shrink: 0;
+}
+.snap-aside {
+  width: min(100%, 640px);
+}
+@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px) {
+  .snap-row {
+    flex-direction: row;
+    justify-content: center;
+    gap: clamp(20px, 2.5cqw, 40px);
+  }
+  .snap-preview {
+    width: min(100cqw - var(--aside) - clamp(20px, 2.5cqw, 40px), 100cqh * 532 / 390);
+  }
+  .snap-aside {
+    width: var(--aside);
+  }
+}
+@media (max-width: 767px), (max-height: 500px) {
+  .snap-preview {
+    width: min(100%, 640px);
+  }
+}
+/* Phone landscape: side by side again, so Start is reachable without scrolling. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .snap-row {
+    flex-direction: row;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .snap-preview {
+    width: min(100% - 320px - 20px, (100dvh - 100px) * 532 / 390);
+  }
+  .snap-aside {
+    width: 320px;
   }
 }
 
@@ -285,6 +563,36 @@ body {
   filter: none;
 }
 
+/* Button drawn from a supplied artwork image: dims when disabled, dips when pressed. */
+.art-btn {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  transition:
+    transform 120ms ease-out,
+    opacity 160ms ease-out;
+  -webkit-touch-callout: none;
+}
+.art-btn > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+.art-btn:active:not(:disabled) {
+  transform: translateY(2px) scale(0.985);
+}
+.art-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.art-btn:focus-visible {
+  outline: 3px solid var(--pp-focus);
+  outline-offset: 4px;
+  border-radius: 18px;
+}
+
 /* Dotted pixel rule, like a ticket perforation. */
 .px-rule {
   height: 2px;
@@ -318,6 +626,20 @@ body {
 .animate-drain {
   transform-origin: left;
   animation: drain linear forwards;
+}
+
+/* Press to Start ring: a full circle that empties over the auto-start time limit. */
+@keyframes ring-drain {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: var(--ring-length);
+  }
+}
+
+.animate-ring-drain {
+  animation: ring-drain linear forwards;
 }
 
 @keyframes px-blink {
@@ -415,7 +737,8 @@ body {
   .animate-px-blink {
     animation: none;
   }
-  .px-btn {
+  .px-btn,
+  .art-btn {
     transition: none;
   }
 }
