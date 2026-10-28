@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Download, Undo } from "pixelarticons/react";
+import { Check, Undo } from "pixelarticons/react";
 import type { PhotoSession } from "@/lib/session";
 import { MAX_RETAKES, stripFilename, ticketNumber } from "@/lib/session";
 import { canShareFiles, downloadBlob, shareFiles, type NamedBlob } from "@/lib/downloads";
@@ -15,7 +15,6 @@ import { PixelStar } from "./PixelStar";
 import { StarCelebration } from "./StarCelebration";
 import {
   ArtButton,
-  Button,
   Jp,
   PixelFrame,
   RegMarks,
@@ -190,7 +189,7 @@ export function KeepScreen({
               </h1>
             </div>
 
-            <div className="flex flex-col items-center gap-2 phone:w-full phone:flex-row phone:justify-center phone:gap-4 phone:text-left">
+            <div className="flex flex-col items-center gap-2 phone:w-full phone:gap-1.5">
               <div className="px-shadow shrink-0">
                 <PixelFrame edge="bg-pp-navy" border={6} step={6} innerClassName="relative p-3 phone:p-2">
                   <MockQr
@@ -199,11 +198,26 @@ export function KeepScreen({
                   />
                 </PixelFrame>
               </div>
-              <div className="flex flex-col items-center gap-2 phone:items-start phone:gap-1">
+              <div className="flex flex-col items-center gap-2 text-center phone:gap-1">
                 <p className="font-pixel text-lg uppercase text-pp-navy phone:text-sm phone:leading-snug">Scan to download your photos here</p>
                 <Jp className="text-sm text-pp-blue phone:text-xs">写真のダウンロードはこちら</Jp>
               </div>
             </div>
+
+            <ArtButton
+              src="/ui/download-button.svg"
+              label={strip ? "Download strip" : "Preparing download…"}
+              width={320}
+              height={104}
+              className="w-full max-w-[16rem] narrow:h-[clamp(60px,8vh,84px)] narrow:w-auto phone:h-auto phone:w-full phone:max-w-[14rem]"
+              disabled={!strip}
+              onClick={() => {
+                if (!strip) return;
+                // Share sheet must open synchronously from the tap, so the PNG is rendered ahead of time.
+                if (canShareFiles()) void shareFiles([strip]);
+                else downloadBlob(strip.blob, strip.filename);
+              }}
+            />
 
             <ArtButton
               src="/ui/finish-button.svg"
@@ -215,23 +229,6 @@ export function KeepScreen({
               }`}
               onClick={onFinish}
             />
-
-            <Button
-              variant="secondary"
-              size="md"
-              className="narrow:w-full phone:w-auto"
-              faceClassName="phone:min-h-10 phone:text-base"
-              disabled={!strip}
-              onClick={() => {
-                if (!strip) return;
-                // Share sheet must open synchronously from the tap, so the PNG is rendered ahead of time.
-                if (canShareFiles()) void shareFiles([strip]);
-                else downloadBlob(strip.blob, strip.filename);
-              }}
-            >
-              <Download className="size-5" aria-hidden />
-              {strip ? "Download strip" : "Preparing…"}
-            </Button>
           </PixelFrame>
         </section>
       </div>
