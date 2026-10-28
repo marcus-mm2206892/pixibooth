@@ -25,6 +25,9 @@ import {
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+/** The QR gallery isn't live yet; flip on once the scan link actually serves photos. */
+const SHOW_QR = false;
+
 /** Finish: blinks after 4 s with no photo picked; right away once the retake is used. */
 const FINISH_IDLE_BLINK: readonly BlinkWindow[] = [[4000, Infinity]];
 const FINISH_NOW_BLINK: readonly BlinkWindow[] = [[0, Infinity]];
@@ -189,20 +192,22 @@ export function KeepScreen({
               </h1>
             </div>
 
-            <div className="flex flex-col items-center gap-2 phone:w-full phone:gap-1.5">
-              <div className="px-shadow shrink-0">
-                <PixelFrame edge="bg-pp-navy" border={6} step={6} innerClassName="relative p-3 phone:p-2">
-                  <MockQr
-                    seed={session.id}
-                    className="w-[clamp(170px,min(38vh,30vw),320px)] narrow:w-[min(20vh,34vw,230px)] phone:w-[min(30vw,120px)]"
-                  />
-                </PixelFrame>
+            {SHOW_QR && (
+              <div className="flex flex-col items-center gap-2 phone:w-full phone:gap-1.5">
+                <div className="px-shadow shrink-0">
+                  <PixelFrame edge="bg-pp-navy" border={6} step={6} innerClassName="relative p-3 phone:p-2">
+                    <MockQr
+                      seed={session.id}
+                      className="w-[clamp(170px,min(38vh,30vw),320px)] narrow:w-[min(20vh,34vw,230px)] phone:w-[min(30vw,120px)]"
+                    />
+                  </PixelFrame>
+                </div>
+                <div className="flex flex-col items-center gap-2 text-center phone:gap-1">
+                  <p className="font-pixel text-lg uppercase text-pp-navy phone:text-sm phone:leading-snug">Scan to download your photos here</p>
+                  <Jp className="text-sm text-pp-blue phone:text-xs">写真のダウンロードはこちら</Jp>
+                </div>
               </div>
-              <div className="flex flex-col items-center gap-2 text-center phone:gap-1">
-                <p className="font-pixel text-lg uppercase text-pp-navy phone:text-sm phone:leading-snug">Scan to download your photos here</p>
-                <Jp className="text-sm text-pp-blue phone:text-xs">写真のダウンロードはこちら</Jp>
-              </div>
-            </div>
+            )}
 
             <ArtButton
               src="/ui/download-button.svg"
