@@ -1,18 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Undo } from "pixelarticons/react";
+import { useEffect, useState } from "react";
+import { Check, Download, Undo } from "pixelarticons/react";
 import type { PhotoSession } from "@/lib/session";
-import { MAX_RETAKES, ticketNumber } from "@/lib/session";
+import { MAX_RETAKES, stripFilename, ticketNumber } from "@/lib/session";
+import { canShareFiles, downloadBlob, shareFiles, type NamedBlob } from "@/lib/downloads";
+import { decodePhoto } from "@/lib/photos";
+import { renderStripPng } from "@/lib/photostrip";
 import { FilteredPhoto } from "./FilteredPhoto";
 import { KioskShell } from "./KioskShell";
 import { MockQr } from "./MockQr";
 import { PhotostripPreview } from "./PhotostripPreview";
 import { PixelStar } from "./PixelStar";
 import { StarCelebration } from "./StarCelebration";
-import { ArtButton, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
+import {
+  ArtButton,
+  Button,
+  Jp,
+  PixelFrame,
+  RegMarks,
+  useBlinkSchedule,
+  useEnterAnimation,
+  type BlinkWindow,
+} from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Finish: blinks after 4 s with no photo picked; right away once the retake is used. */
+const FINISH_IDLE_BLINK: readonly BlinkWindow[] = [[4000, Infinity]];
+const FINISH_NOW_BLINK: readonly BlinkWindow[] = [[0, Infinity]];
 
 /**
  * Step 3, the last screen of the session. Left: the finished strip plus one
@@ -31,6 +47,10 @@ export function KeepScreen({
   const root = useEnterAnimation<HTMLDivElement>();
   const [selected, setSelected] = useState<number | null>(null);
   const retakesLeft = Math.max(0, MAX_RETAKES - session.retakesUsed);
+  const strip = useStripPng(session);
+  // Picking a photo stops it; un-picking restarts the 4 s wait (null, then a fresh key).
+  const finishKey = retakesLeft === 0 ? "final" : selected === null ? "idle" : null;
+  const blinkFinish = useBlinkSchedule(finishKey, retakesLeft === 0 ? FINISH_NOW_BLINK : FINISH_IDLE_BLINK);
 
   return (
     <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)} bodyClassName="narrow:overflow-y-auto">
@@ -188,12 +208,52 @@ export function KeepScreen({
               label="Finish"
               width={360}
               height={115}
-              className="w-full max-w-sm narrow:h-[clamp(76px,10vh,104px)] narrow:w-auto phone:h-auto phone:w-full"
+              className={`w-full max-w-sm narrow:h-[clamp(76px,10vh,104px)] narrow:w-auto phone:h-auto phone:w-full ${
+                blinkFinish ? "animate-arcade-soft" : ""
+              }`}
               onClick={onFinish}
             />
+
+            <Button
+              variant="secondary"
+              size="md"
+              className="narrow:w-full"
+              disabled={!strip}
+              onClick={() => {
+                if (!strip) return;
+                // Share sheet must open synchronously from the tap, so the PNG is rendered ahead of time.
+                if (canShareFiles()) void shareFiles([strip]);
+                else downloadBlob(strip.blob, strip.filename);
+              }}
+            >
+              <Download className="size-5" aria-hidden />
+              {strip ? "Download strip" : "Preparing…"}
+            </Button>
           </PixelFrame>
         </section>
       </div>
     </KioskShell>
   );
+}
+
+/** Renders the print PNG in the background so the download tap can use it immediately. */
+function useStripPng(session: PhotoSession): NamedBlob | null {
+  const [strip, setStrip] = useState<{ photos: PhotoSession["photos"]; file: NamedBlob } | null>(null);
+  const { photos, template, filter, createdAt } = session;
+  const filename = stripFilename(session);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sources = await Promise.all(photos.map((p) => (p ? decodePhoto(p) : null)));
+      const blob = await renderStripPng({ photos: sources, template, filter, date: createdAt ? new Date(createdAt) : undefined });
+      if (!cancelled) setStrip({ photos, file: { blob, filename } });
+    })().catch((err) => console.error("Strip export failed", err));
+    return () => {
+      cancelled = true;
+    };
+  }, [photos, template, filter, createdAt, filename]);
+
+  // A retake swaps the photos array; hide the stale PNG until the new one is ready.
+  return strip?.photos === photos ? strip.file : null;
 }

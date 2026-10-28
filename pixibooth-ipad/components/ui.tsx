@@ -240,7 +240,8 @@ export function useBlinkSchedule(
   useEffect(() => {
     if (runKey === null) return;
     const start = performance.now();
-    const edges = windows.flat();
+    // An open-ended window ends at Infinity: nothing to schedule for it.
+    const edges = windows.flat().filter(Number.isFinite);
     let timer = 0;
     const tick = () => {
       const elapsed = performance.now() - start;
