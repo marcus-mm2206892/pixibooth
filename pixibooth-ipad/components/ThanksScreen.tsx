@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { animate, stagger, type JSAnimation } from "animejs";
 import { mulberry32 } from "@/lib/canvas";
 import { reducedMotion } from "@/lib/motion";
@@ -39,7 +46,11 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
   }, []);
   const sparkles = useMemo(() => {
     const rand = mulberry32(25);
-    return Array.from({ length: 12 }, () => ({ left: 4 + rand() * 92, top: 6 + rand() * 88, size: 12 + Math.round(rand() * 3) * 6 }));
+    return Array.from({ length: 12 }, () => ({
+      left: 4 + rand() * 92,
+      top: 6 + rand() * 88,
+      size: 12 + Math.round(rand() * 3) * 6,
+    }));
   }, []);
 
   const leave = useCallback(() => {
@@ -63,7 +74,8 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
-    const q = (sel: string) => Array.from(el.querySelectorAll<HTMLElement>(sel));
+    const q = (sel: string) =>
+      Array.from(el.querySelectorAll<HTMLElement>(sel));
     if (reducedMotion()) {
       q("[data-wipe]").forEach((c) => (c.style.transform = "scale(0)"));
       q("[data-letter]").forEach((c) => (c.style.opacity = "1"));
@@ -136,7 +148,10 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
   }, [confetti]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+    const timer = window.setInterval(
+      () => setLeft((n) => Math.max(0, n - 1)),
+      1000,
+    );
     return () => window.clearInterval(timer);
   }, []);
 
@@ -158,42 +173,82 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
           data-confetti
           aria-hidden
           className="pointer-events-none absolute top-0"
-          style={{ left: `${c.left}%`, width: c.size, height: c.size, background: c.color, transform: "translateY(-10vh)" }}
+          style={{
+            left: `${c.left}%`,
+            width: c.size,
+            height: c.size,
+            background: c.color,
+            transform: "translateY(-10vh)",
+          }}
         />
       ))}
       {sparkles.map((s, i) => (
-        <span key={i} data-sparkle aria-hidden className="pointer-events-none absolute" style={{ left: `${s.left}%`, top: `${s.top}%` }}>
+        <span
+          key={i}
+          data-sparkle
+          aria-hidden
+          className="pointer-events-none absolute"
+          style={{ left: `${s.left}%`, top: `${s.top}%` }}
+        >
           <PixelStar variant="sparkle" size={s.size} color="#FFFFFF" />
         </span>
       ))}
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center phone:gap-4 phone:p-5 [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-3">
-        <span data-mascot className="inline-block phone:-my-3 phone:scale-75 [@media(max-height:500px)]:scale-50 [@media(max-height:500px)]:-my-8">
-          <PixelStar variant="duo" size={120} color="#FFFFFF" accent="var(--pp-blue)" />
+        <span
+          data-mascot
+          className="inline-block phone:-my-3 phone:scale-75 [@media(max-height:500px)]:scale-50 [@media(max-height:500px)]:-my-8"
+        >
+          <PixelStar
+            variant="duo"
+            size={120}
+            color="#FFFFFF"
+            accent="var(--pp-blue)"
+          />
         </span>
 
-        <h1 className="flex font-pixel text-[clamp(2.25rem,min(11vw,15vh),8rem)] leading-none" aria-label={TITLE}>
+        <h1
+          className="flex font-pixel text-[clamp(2.25rem,min(11vw,15vh),8rem)] leading-none"
+          aria-label={TITLE}
+        >
           {[...TITLE].map((ch, i) => (
-            <span key={i} data-letter aria-hidden className="inline-block" style={{ opacity: 0 }}>
+            <span
+              key={i}
+              data-letter
+              aria-hidden
+              className="inline-block"
+              style={{ opacity: 0 }}
+            >
               <span data-wave className="inline-block">
                 {ch === " " ? " " : ch}
               </span>
             </span>
           ))}
         </h1>
-        <p data-fade className="font-pixel text-3xl text-pp-blue-light phone:text-2xl">
+        <p
+          data-fade
+          className="font-pixel text-3xl text-pp-blue-light phone:text-2xl"
+        >
           <Jp>ありがとう！</Jp>
         </p>
 
         <div data-fade className="max-w-2xl">
-          <p className="font-pixel text-2xl leading-snug phone:text-lg [@media(max-height:500px)]:text-base">You may exit the photo booth now to get your photos printed.</p>
+          <p className="font-pixel text-2xl leading-snug phone:text-lg [@media(max-height:500px)]:text-base">
+            Enjoy your new photostrip!
+          </p>
           <p className="mt-2 text-lg text-white/75 phone:text-sm">
             <Jp>ブースを出て、プリントをお受け取りください</Jp>
           </p>
         </div>
 
-        <div data-fade className="mt-4 flex flex-col items-center gap-3 [@media(max-height:500px)]:mt-1">
-          <p className="font-label text-sm font-bold tracking-[0.18em] text-white/60" aria-live="polite">
+        <div
+          data-fade
+          className="mt-4 flex flex-col items-center gap-3 [@media(max-height:500px)]:mt-1"
+        >
+          <p
+            className="font-label text-sm font-bold tracking-[0.18em] text-white/60"
+            aria-live="polite"
+          >
             RETURNING TO START IN {left}
           </p>
         </div>
@@ -203,11 +258,21 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 z-20 grid"
-        style={{ gridTemplateColumns: `repeat(${WIPE_COLS}, 1fr)`, gridTemplateRows: `repeat(${WIPE_ROWS}, 1fr)` }}
+        style={{
+          gridTemplateColumns: `repeat(${WIPE_COLS}, 1fr)`,
+          gridTemplateRows: `repeat(${WIPE_ROWS}, 1fr)`,
+        }}
       >
         {Array.from({ length: WIPE_COLS * WIPE_ROWS }, (_, i) => {
-          const checker = (Math.floor(i / WIPE_COLS) + (i % WIPE_COLS)) % 2 === 0;
-          return <span key={i} data-wipe className={checker ? "bg-pp-blue" : "bg-pp-blue-deep"} />;
+          const checker =
+            (Math.floor(i / WIPE_COLS) + (i % WIPE_COLS)) % 2 === 0;
+          return (
+            <span
+              key={i}
+              data-wipe
+              className={checker ? "bg-pp-blue" : "bg-pp-blue-deep"}
+            />
+          );
         })}
       </div>
     </div>
