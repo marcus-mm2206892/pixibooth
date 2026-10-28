@@ -32,7 +32,7 @@ function SlotThumb({
 
   const n = String(index + 1).padStart(2, "0");
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="flex flex-col items-center gap-1.5 phone:gap-0.5">
       <div
         ref={ref}
         className={`relative aspect-532/390 w-full overflow-hidden ${
@@ -42,12 +42,12 @@ function SlotThumb({
         {photo ? (
           <FilteredPhoto photo={photo} filter={filter} width={360} alt={`Photo ${index + 1}`} />
         ) : (
-          <div className="flex h-full w-full items-center justify-center font-helvetica text-[clamp(1.1rem,2.8vh,1.6rem)] text-pp-blue-deep/60">{n}</div>
+          <div className="flex h-full w-full items-center justify-center font-helvetica text-[clamp(1.1rem,2.8vh,1.6rem)] text-pp-blue-deep/60 phone:text-sm">{n}</div>
         )}
       </div>
       <span
         ref={star}
-        className={`flex items-center gap-1 font-helvetica text-sm ${photo || active ? "text-pp-blue-deep" : "text-pp-blue-deep/70"}`}
+        className={`flex items-center gap-1 font-helvetica text-sm phone:text-[0.65rem] ${photo || active ? "text-pp-blue-deep" : "text-pp-blue-deep/70"}`}
       >
         <PixelStar variant={photo ? "solid" : "outline"} size={11} color="currentColor" />
         {n} / {String(SHOT_COUNT).padStart(2, "0")}
@@ -60,13 +60,15 @@ export function CaptureProgress({
   photos,
   filter,
   activeSlot,
+  className = "",
 }: {
   photos: Array<CapturedPhoto | null>;
   filter: FilterId;
   activeSlot: number | null;
+  className?: string;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2.5" aria-label="Photos taken">
+    <div className={`grid grid-cols-2 gap-2.5 phone:grid-cols-4 phone:gap-1.5 ${className}`} aria-label="Photos taken">
       {photos.map((photo, i) => (
         <SlotThumb key={i} photo={photo} index={i} filter={filter} active={activeSlot === i} />
       ))}

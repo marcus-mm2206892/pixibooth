@@ -4,8 +4,8 @@
 @custom-variant short (@media (max-height: 860px));
 /* Layout modes. "wide": tablet/desktop landscape, fixed no-scroll kiosk layout.
    "narrow": everything else (tablet portrait and phones).
-   "phone": below iPad-portrait width (768px) or very short, where the kiosk
-   becomes a scrolling page. */
+   "phone": below iPad-portrait width (768px) or very short. Every screen still
+   fits the viewport; only the Keep screen may scroll. */
 @custom-variant wide (@media (orientation: landscape) and (min-width: 768px) and (min-height: 501px));
 @custom-variant narrow (@media not all and (orientation: landscape) and (min-width: 768px) and (min-height: 501px));
 @custom-variant phone {
@@ -16,6 +16,8 @@
     @slot;
   }
 }
+/* Phone held upright (declared after phone so its utilities win). */
+@custom-variant phone-portrait (@media (max-width: 767px) and (min-height: 501px));
 
 /* pixipocket booth tokens. The app shell is cobalt + navy + white; the eight
    printed-strip colors live in lib/photostrip.ts and never theme the UI. */
@@ -119,18 +121,6 @@ body {
     max(env(safe-area-inset-left), 20px);
 }
 
-/* Phones: the booth scrolls instead of squeezing every screen into the viewport. */
-@media (max-width: 767px), (max-height: 500px) {
-  .kiosk {
-    height: auto;
-    min-height: 100dvh;
-    overflow: visible;
-  }
-  .kiosk-body {
-    flex: 1 0 auto;
-  }
-}
-
 @media (max-height: 860px) {
   .kiosk-bar {
     padding-top: max(env(safe-area-inset-top), 6px);
@@ -139,6 +129,20 @@ body {
   .kiosk-body {
     padding-top: 10px;
     padding-bottom: max(env(safe-area-inset-bottom), 10px);
+  }
+}
+
+/* Phones: tighter chrome. Screens are laid out to fit; the body only scrolls
+   as a fallback on very small phones (and on purpose on the Keep screen). */
+@media (max-width: 767px), (max-height: 500px) {
+  .kiosk-bar {
+    padding: max(env(safe-area-inset-top), 6px) max(env(safe-area-inset-right), 12px) 6px
+      max(env(safe-area-inset-left), 12px);
+  }
+  .kiosk-body {
+    overflow-y: auto;
+    padding: 10px max(env(safe-area-inset-right), 12px) max(env(safe-area-inset-bottom), 10px)
+      max(env(safe-area-inset-left), 12px);
   }
 }
 
@@ -196,7 +200,7 @@ body {
   width: 100%;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-auto-rows: calc(var(--u) * 76);
+  grid-auto-rows: calc(var(--u) * var(--guide, 1) * 76);
 }
 .welcome-guide > li:nth-child(even) {
   border-left: 2px dotted rgb(70 104 154 / 0.4);
@@ -206,8 +210,8 @@ body {
 }
 .pay-row {
   display: flex;
-  height: calc(var(--u) * 232);
-  gap: calc(var(--u) * 28);
+  height: calc(var(--u) * var(--pay, 1) * 232);
+  gap: calc(var(--u) * var(--pay, 1) * 28);
 }
 .pay-col {
   display: flex;
@@ -260,54 +264,62 @@ body {
   }
 }
 
-/* Phone landscape: the one-column board, scrolling. */
-@media (max-height: 500px) and (min-width: 768px) {
-  .welcome-stage {
-    container-type: inline-size;
-    align-items: flex-start;
-    flex: none;
-  }
+/* Phone portrait: a narrower board that fits the screen: logo, mirror, Start,
+   then the bill/coin slots and the 2×2 guide, each block scaled to the width. */
+@media (max-width: 767px) {
   .welcome-canvas {
-    --u: min(100cqw / 740, 1.15px);
+    --u: min(100cqw / 420, 100cqh / 880);
+    --mirror: 220;
+    --brand: 0.5;
+    --start: 300;
+    --pay: 0.74;
+    --guide: 0.8;
+    width: calc(var(--u) * 420);
+    row-gap: calc(var(--u) * 14);
+    grid-template-areas: "brand" "mirror" "start" "rule" "pay" "guide";
+  }
+  .welcome-guide {
+    grid-auto-rows: minmax(calc(var(--u) * var(--guide) * 76), auto);
   }
 }
 
-/* Phone portrait: a narrower board; payment and guide stack. */
-@media (max-width: 767px) {
-  .welcome-stage {
-    container-type: inline-size;
-    align-items: flex-start;
-    flex: none;
+/* Portrait only: logo and Start become separate rows of the board. */
+@media (max-width: 767px) and (min-height: 501px) {
+  .welcome-intro {
+    display: contents;
   }
+  .welcome-brand {
+    grid-area: brand;
+  }
+  .welcome-start {
+    grid-area: start;
+  }
+}
+
+/* Phone landscape: logo + Start on the left, the mirror on the right. */
+@media (max-height: 500px) {
   .welcome-canvas {
-    --u: min(100cqw / 420, 1.3px);
-    width: calc(var(--u) * 420);
+    --u: min(100cqw / 740, 100cqh / 360);
+    --mirror: 300;
+    --brand: 1;
+    --start: 340;
+    width: calc(var(--u) * 740);
+    height: calc(var(--u) * 360);
+    row-gap: 0;
+    column-gap: calc(var(--u) * 40);
+    grid-template-columns: calc(var(--u) * 360) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "intro mirror";
   }
   .welcome-intro {
     flex-direction: column;
-    gap: calc(var(--u) * 20);
+    justify-content: center;
+    gap: calc(var(--u) * 24);
   }
-  .pay-row {
-    flex-direction: column;
-    height: auto;
-    gap: calc(var(--u) * 22);
-  }
-  .pay-col {
-    gap: calc(var(--u) * 10);
-  }
-  .pay-divider {
-    border-left: 0;
-    border-top: 2px dotted rgb(70 104 154 / 0.45);
-  }
+  .welcome-pay,
+  .welcome-rule,
   .welcome-guide {
-    grid-template-columns: 1fr;
-    grid-auto-rows: calc(var(--u) * 72);
-  }
-  .welcome-guide > li:nth-child(even) {
-    border-left: 0;
-  }
-  .welcome-guide > li + li {
-    border-top: 2px dotted rgb(70 104 154 / 0.4);
+    display: none;
   }
 }
 
@@ -380,11 +392,65 @@ body {
     grid-template-columns: min(30cqw, (100cqh - 64px) / 3) minmax(0, 1fr);
   }
 }
+/* Phones: title across the top, strip left, choices right, button below; fits
+   the screen. The strip column is as wide as the height-bound strip. */
 @media (max-width: 767px), (max-height: 500px) {
   .style-layout {
+    column-gap: 12px;
+    row-gap: 8px;
+    grid-template-columns: min(36cqw, (100cqh - 166px) / 3) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "head head"
+      "preview colors"
+      "preview filters"
+      "cta cta";
+  }
+  /* Cards share the height left over (up to ~100px each); samples follow it. */
+  .filter-grid {
+    --gap: 8px;
+    flex: 1;
+    min-height: 0;
+    max-height: calc(3 * 100px + 2 * var(--gap));
+    grid-auto-rows: minmax(0, 1fr);
+  }
+}
+@media (max-height: 500px) {
+  .filter-grid {
+    max-height: 100px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .style-layout {
+    grid-template-columns: min(30cqw, (100cqh - 40px) / 3) minmax(0, 1fr);
+    grid-template-areas:
+      "preview head"
+      "preview colors"
+      "preview filters"
+      "preview cta";
+  }
+}
+
+/* Phone portrait: the strip on top, then one swipeable row each of colors and
+   filters, then Continue. */
+@media (max-width: 767px) and (min-height: 501px) {
+  .style-layout {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
     grid-template-areas: "head" "preview" "colors" "filters" "cta";
+  }
+  .filter-grid {
+    display: flex;
+    flex: none;
+    height: 76px;
+    max-height: none;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+  }
+  .filter-grid > button {
+    flex: none;
+    width: 210px;
+    scroll-snap-align: start;
   }
 }
 
@@ -420,9 +486,16 @@ body {
     width: var(--aside);
   }
 }
+/* Phone portrait: stacked, the camera as large as fits above the compact panel. */
 @media (max-width: 767px), (max-height: 500px) {
+  .snap-row {
+    gap: 12px;
+  }
   .snap-preview {
-    width: min(100%, 640px);
+    width: min(100cqw, (100cqh - 12px - var(--aside-h, 250px)) * 532 / 390);
+  }
+  .snap-aside {
+    width: min(100%, 520px);
   }
 }
 /* Phone landscape: side by side again, so Start is reachable without scrolling. */
@@ -433,10 +506,10 @@ body {
     align-items: flex-start;
   }
   .snap-preview {
-    width: min(100% - 320px - 20px, (100dvh - 100px) * 532 / 390);
+    width: min(100cqw - 300px - 12px, 100cqh * 532 / 390);
   }
   .snap-aside {
-    width: 320px;
+    width: 300px;
   }
 }
 

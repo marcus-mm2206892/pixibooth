@@ -17,6 +17,8 @@ import { PixelStar } from "./PixelStar";
 import { ArtButton, Button, Jp, PixelFrame, PixelTag, useBlinkSchedule, type BlinkWindow } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+/** Overlay buttons on a phone-sized preview. */
+const PHONE_BUTTON = "phone:min-h-11 phone:gap-2 phone:px-4 phone:text-base";
 
 /** Press to Start over the 15 s auto-start: blinks for the first 5 s, still for 5 s, blinks for the last 5 s. */
 const START_BLINKS: readonly BlinkWindow[] = [
@@ -128,7 +130,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
       />
       {/* Preview + status panel as one centred group (.snap-row): side by side
           in landscape, stacked in portrait and on phones. */}
-      <div className="fit-box relative flex min-h-0 flex-1 items-center justify-center phone:flex-none phone:[container-type:normal]">
+      <div className="fit-box relative flex min-h-0 flex-1 items-center justify-center">
         <div className="snap-row">
           {/* Live preview: same 532:390 aspect + center crop as the saved photo. */}
           <div className="snap-preview">
@@ -164,18 +166,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                   Semi-transparent so faces stay visible; it is never part of the saved photo. */}
               {videoReady && (capturing || phase === "camera-ready") && (
                 <div className="pointer-events-none absolute inset-x-[5%] bottom-[5%] flex justify-center" aria-live="polite">
-                  <div className="px-corners flex max-w-full items-center gap-3 bg-pp-navy/55 px-4 py-2.5">
-                    <span className="shrink-0 bg-pp-blue/85 px-2 py-0.5 font-pixel text-sm tracking-widest text-white">
+                  <div className="px-corners flex max-w-full items-center gap-3 bg-pp-navy/55 px-4 py-2.5 phone:gap-2 phone:px-2 phone:py-1.5">
+                    <span className="shrink-0 bg-pp-blue/85 px-2 py-0.5 font-pixel text-sm tracking-widest text-white phone:px-1.5 phone:text-[0.65rem]">
                       {phase === "pose-break" ? "NEXT POSE ★" : "POSE TIP ★"}
                     </span>
                     <p
                       key={pose}
-                      className="min-w-0 font-pixel text-[clamp(1.5rem,3.8vmin,2.8rem)] uppercase leading-tight text-white/90 drop-shadow-[0_2px_0_rgba(10,45,105,0.6)]"
+                      className="min-w-0 font-pixel text-[clamp(1.5rem,3.8vmin,2.8rem)] uppercase leading-tight phone:text-base text-white/90 drop-shadow-[0_2px_0_rgba(10,45,105,0.6)]"
                     >
                       {idle && !isRetake ? "Get ready to pose!" : pose}
                     </p>
                     {phase === "pose-break" && (
-                      <span className="h-2 w-20 shrink-0 overflow-hidden bg-white/25">
+                      <span className="h-2 w-20 shrink-0 overflow-hidden bg-white/25 phone:w-10">
                         <span
                           key={activeSlot}
                           className="animate-drain block h-full bg-white/90"
@@ -203,7 +205,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 <span
                   key={countdown}
                   ref={badgeRef}
-                  className="px-corners absolute right-4 top-7 flex size-16 items-center justify-center bg-white font-pixel text-5xl text-pp-navy"
+                  className="px-corners absolute right-4 top-7 flex size-16 items-center justify-center bg-white font-pixel text-5xl text-pp-navy phone:right-2 phone:top-5 phone:size-10 phone:text-3xl"
                   aria-hidden
                 >
                   {countdown}
@@ -215,17 +217,17 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               </span>
 
               {(phase === "camera-setup" || (phase === "camera-ready" && !videoReady)) && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-pp-blue-dark p-6 text-center">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-pp-blue-dark p-6 text-center phone:gap-3 phone:p-3">
                   {state.cameraStatus === "off" ? (
                     <>
-                      <span className="relative">
+                      <span className="relative phone:hidden">
                         <PixelStar variant="outline" size={110} color="rgba(255,255,255,0.35)" />
                         <Camera className="absolute left-1/2 top-[55%] size-12 -translate-x-1/2 -translate-y-1/2" aria-hidden />
                       </span>
-                      <p className="max-w-sm text-lg text-white/80">
+                      <p className="max-w-sm text-lg text-white/80 phone:text-sm">
                         Tap below and allow camera access. Photos stay on this device.
                       </p>
-                      <Button variant="inverse" size="xl" onClick={() => engine.enableCamera()}>
+                      <Button variant="inverse" size="xl" faceClassName={PHONE_BUTTON} onClick={() => engine.enableCamera()}>
                         Enable camera
                       </Button>
                     </>
@@ -240,18 +242,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               )}
 
               {phase === "paused" && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-pp-blue-dark/85 p-6 text-center">
-                  <Pause className="size-14" aria-hidden />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-pp-blue-dark/85 p-6 text-center phone:gap-2 phone:p-3">
+                  <Pause className="size-14 phone:size-8" aria-hidden />
                   <div>
-                    <p className="font-pixel text-5xl uppercase">Paused</p>
-                    <p className="mt-2 max-w-md text-white/80">
+                    <p className="font-pixel text-5xl uppercase phone:text-2xl">Paused</p>
+                    <p className="mt-2 max-w-md text-white/80 phone:mt-1 phone:text-xs">
                       {state.pausedBy === "hidden"
                         ? "The screen was hidden, so we stopped the countdown. Nothing was taken while away."
                         : "The countdown is stopped. Your photos so far are kept."}
                     </p>
                   </div>
-                  <Button variant="inverse" size="xl" onClick={() => engine.resume()}>
-                    <Play className="size-8" aria-hidden />
+                  <Button variant="inverse" size="xl" faceClassName={PHONE_BUTTON} onClick={() => engine.resume()}>
+                    <Play className="size-8 phone:size-5" aria-hidden />
                     Resume countdown
                   </Button>
                 </div>
@@ -259,11 +261,11 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
 
               {phase === "error" && (
                 <div className="absolute inset-0 overflow-y-auto bg-pp-blue-dark">
-                  <div className="flex min-h-full flex-col items-center justify-center gap-4 p-6 text-center">
+                  <div className="flex min-h-full flex-col items-center justify-center gap-4 p-6 text-center phone:gap-2 phone:p-3">
                     <PixelTag inverse>CHECK CAMERA ★</PixelTag>
-                    <p className="font-pixel text-2xl uppercase leading-tight">{errorCopy.title}</p>
-                    <p className="max-w-lg text-white/80">{errorCopy.body}</p>
-                    <Button variant="inverse" size="lg" onClick={() => engine.retryAfterError()}>
+                    <p className="font-pixel text-2xl uppercase leading-tight phone:text-base">{errorCopy.title}</p>
+                    <p className="max-w-lg text-white/80 phone:text-xs">{errorCopy.body}</p>
+                    <Button variant="inverse" size="lg" faceClassName={PHONE_BUTTON} onClick={() => engine.retryAfterError()}>
                       <Reload className="size-6" aria-hidden />
                       {state.error === "ended" ? "Reconnect camera" : "Try again"}
                     </Button>
@@ -275,20 +277,20 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
           </div>
 
         {/* Mirror, status, the big countdown, progress and the one big button. */}
-        <aside className="snap-aside grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-3 phone:grid-cols-1 wide:flex wide:flex-col wide:items-stretch wide:justify-center">
+        <aside className="snap-aside grid min-h-0 grid-cols-2 items-center gap-x-6 gap-y-3 phone:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] phone:gap-x-3 phone:gap-y-2.5 wide:flex wide:flex-col wide:items-stretch wide:justify-center">
           {phase === "camera-ready" && (
             <ArtButton
               src="/ui/mirror-button.svg"
               label="Mirror / Flip"
               width={219}
               height={87}
-              className="col-span-2 w-[min(72%,270px)] phone:col-span-1 short:w-[min(66%,240px)]"
+              className="col-span-2 w-[min(72%,270px)] short:w-[min(66%,240px)] phone:order-3 phone:col-span-1 phone:w-full"
               aria-pressed={mirror}
               onClick={() => engine.toggleMirror()}
             />
           )}
 
-          <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3 phone:order-1 phone:col-span-2 phone:gap-1.5">
           {!idle && (
             <div className="flex items-center justify-between gap-3">
               <PixelTag>
@@ -298,18 +300,18 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             </div>
           )}
 
-          <div className="flex min-h-[clamp(72px,10vh,120px)] items-center wide:min-h-[clamp(96px,22vh,190px)]" aria-live="assertive">
+          <div className="flex min-h-[clamp(72px,10vh,120px)] items-center phone:min-h-14 wide:min-h-[clamp(96px,22vh,190px)]" aria-live="assertive">
             {phase === "countdown" && countdown !== null ? (
               <span
                 key={countdown}
                 ref={countRef}
-                className="font-pixel text-[clamp(5rem,11vh,8rem)] leading-none tabular-nums text-pp-cobalt wide:text-[clamp(6rem,24vh,12rem)]"
+                className="font-pixel text-[clamp(5rem,11vh,8rem)] leading-none tabular-nums text-pp-cobalt phone:text-[3.5rem] wide:text-[clamp(6rem,24vh,12rem)]"
               >
                 {countdown}
               </span>
             ) : (
               <div className="font-helvetica">
-                <p className="text-[clamp(1.8rem,min(5.4vh,3.05cqw),2.75rem)] font-bold phone:text-[2rem] leading-tight text-pp-cobalt">
+                <p className="text-[clamp(1.8rem,min(5.4vh,3.05cqw),2.75rem)] font-bold leading-tight text-pp-cobalt phone:text-[1.35rem]">
                   {phase === "capturing"
                     ? "Snap! ★"
                     : phase === "pose-break"
@@ -322,7 +324,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                             ? `Retake photo ${pad2(retakeSlot + 1)}`
                             : "Ready to pose?"}
                 </p>
-                <p className="mt-1 text-[clamp(1.15rem,2.8vh,1.5rem)] leading-snug text-pp-blue-deep">
+                <p className="mt-1 text-[clamp(1.15rem,2.8vh,1.5rem)] leading-snug text-pp-blue-deep phone:mt-0.5 phone:text-sm">
                   {phase === "pose-break"
                     ? `Photo ${pad2(shotNumber)} / ${pad2(SHOT_COUNT)} is next`
                     : isRetake
@@ -330,7 +332,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                       : "5-second countdown • Pose tips • 4 photos"}
                 </p>
                 {idle && !isRetake && (
-                  <p lang="ja" className="mt-1 text-[clamp(0.95rem,2.1vh,1.1rem)] leading-snug text-pp-red">
+                  <p lang="ja" className="mt-1 text-[clamp(0.95rem,2.1vh,1.1rem)] leading-snug text-pp-red phone:mt-0.5 phone:text-xs">
                     5秒カウントダウン・ポーズのヒント・4枚撮影
                   </p>
                 )}
@@ -340,6 +342,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
           </div>
 
           <CaptureProgress
+            className="phone:order-2 phone:col-span-2"
             photos={photos}
             filter={filter}
             activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos)}
@@ -351,7 +354,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               label={primaryLabel}
               width={326}
               height={104}
-              className={`col-span-2 w-full justify-self-center phone:col-span-1 narrow:max-w-105 short:w-[94%] ${
+              className={`col-span-2 w-full justify-self-center narrow:max-w-105 short:w-[94%] phone:order-4 phone:col-span-1 phone:w-full ${
                 blinkStart ? "animate-arcade-soft" : ""
               }`}
               disabled={!videoReady}
@@ -403,7 +406,7 @@ function AutoStartRing({ ms, runKey }: { ms: number; runKey: string | null }) {
 
 /** Pixel crop-guide corners at the safe area. */
 function FramingGuide() {
-  const corner = "absolute size-9 border-white/80";
+  const corner = "absolute size-9 border-white/80 phone:size-6";
   return (
     <div className="pointer-events-none absolute inset-[6%]" aria-hidden>
       <span className={`${corner} left-0 top-0 border-l-4 border-t-4`} />

@@ -131,12 +131,12 @@ export function ScreenTitle({
 }) {
   return (
     <div className={className}>
-      <p className={`font-label text-base font-bold uppercase tracking-[0.18em] ${inverse ? "text-white/75" : "text-pp-blue"}`}>
+      <p className={`font-label text-base font-bold uppercase tracking-[0.18em] phone:text-xs ${inverse ? "text-white/75" : "text-pp-blue"}`}>
         {label}
         {jp && <Jp className="ml-3 opacity-80">{jp}</Jp>}
       </p>
       <h1
-        className={`mt-1 flex items-center gap-3 font-pixel text-3xl uppercase leading-tight sm:text-4xl short:sm:text-3xl ${
+        className={`mt-1 flex items-center gap-3 font-pixel text-3xl uppercase leading-tight sm:text-4xl short:sm:text-3xl phone:gap-2 phone:text-xl ${
           inverse ? "text-white" : "text-pp-navy"
         }`}
       >

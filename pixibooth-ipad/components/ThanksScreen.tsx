@@ -5,7 +5,7 @@ import { animate, stagger, type JSAnimation } from "animejs";
 import { mulberry32 } from "@/lib/canvas";
 import { reducedMotion } from "@/lib/motion";
 import { PixelStar } from "./PixelStar";
-import { Button, Jp } from "./ui";
+import { Jp } from "./ui";
 
 /** Seconds before the booth returns to the welcome screen on its own. */
 const RETURN_SECONDS = 10;
@@ -16,8 +16,9 @@ const CONFETTI_COLORS = ["#FFFFFF", "#1854B8", "#F5D979", "#F7B9CE", "#BFDFFF"];
 
 /**
  * Goodbye screen after Finish: a pixel-block wipe, bouncing pixel letters, a
- * star mascot, falling pixel confetti and twinkling stars. It returns to the
- * welcome screen after a countdown (or a tap) with the reverse wipe.
+ * star mascot, falling pixel confetti and twinkling stars. Nothing on it is
+ * tappable, so the message is always seen; it returns to the welcome screen
+ * after the countdown with the reverse wipe.
  */
 export function ThanksScreen({ onDone }: { onDone: () => void }) {
   const root = useRef<HTMLDivElement>(null);
@@ -146,8 +147,7 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
   return (
     <div
       ref={root}
-      className="kiosk relative cursor-pointer overflow-hidden bg-pp-navy px-dots-faint text-white"
-      onClick={leave}
+      className="kiosk relative overflow-hidden bg-pp-navy px-dots-faint text-white"
       role="dialog"
       aria-label="Thank you"
     >
@@ -167,12 +167,12 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
         </span>
       ))}
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-3">
-        <span data-mascot className="inline-block [@media(max-height:500px)]:scale-50 [@media(max-height:500px)]:-my-8">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 p-8 text-center phone:gap-4 phone:p-5 [@media(max-height:500px)]:gap-2 [@media(max-height:500px)]:p-3">
+        <span data-mascot className="inline-block phone:-my-3 phone:scale-75 [@media(max-height:500px)]:scale-50 [@media(max-height:500px)]:-my-8">
           <PixelStar variant="duo" size={120} color="#FFFFFF" accent="var(--pp-blue)" />
         </span>
 
-        <h1 className="flex font-pixel text-[clamp(3rem,min(11vw,15vh),8rem)] leading-none" aria-label={TITLE}>
+        <h1 className="flex font-pixel text-[clamp(2.25rem,min(11vw,15vh),8rem)] leading-none" aria-label={TITLE}>
           {[...TITLE].map((ch, i) => (
             <span key={i} data-letter aria-hidden className="inline-block" style={{ opacity: 0 }}>
               <span data-wave className="inline-block">
@@ -181,28 +181,18 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
             </span>
           ))}
         </h1>
-        <p data-fade className="font-pixel text-3xl text-pp-blue-light">
+        <p data-fade className="font-pixel text-3xl text-pp-blue-light phone:text-2xl">
           <Jp>ありがとう！</Jp>
         </p>
 
         <div data-fade className="max-w-2xl">
-          <p className="font-pixel text-2xl leading-snug [@media(max-height:500px)]:text-xl">You may exit the photo booth now to get your photos printed.</p>
-          <p className="mt-2 text-lg text-white/75">
+          <p className="font-pixel text-2xl leading-snug phone:text-lg [@media(max-height:500px)]:text-base">You may exit the photo booth now to get your photos printed.</p>
+          <p className="mt-2 text-lg text-white/75 phone:text-sm">
             <Jp>ブースを出て、プリントをお受け取りください</Jp>
           </p>
         </div>
 
         <div data-fade className="mt-4 flex flex-col items-center gap-3 [@media(max-height:500px)]:mt-1">
-          <Button
-            variant="inverse"
-            size="lg"
-            onClick={(e) => {
-              e.stopPropagation();
-              leave();
-            }}
-          >
-            Back to start
-          </Button>
           <p className="font-label text-sm font-bold tracking-[0.18em] text-white/60" aria-live="polite">
             RETURNING TO START IN {left}
           </p>

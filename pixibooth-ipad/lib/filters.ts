@@ -49,7 +49,7 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
   },
 };
 
-export const FILTER_ORDER: FilterId[] = ["none", "vintage", "dreamfilm"];
+export const FILTER_ORDER: FilterId[] = ["none", "dreamfilm", "vintage"];
 
 type Rgb = [number, number, number];
 

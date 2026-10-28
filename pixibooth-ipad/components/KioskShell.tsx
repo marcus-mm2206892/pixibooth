@@ -70,17 +70,17 @@ export function KioskShell({
           height={936}
           priority
           unoptimized
-          className="h-10 w-auto short:h-8"
+          className="h-10 w-auto short:h-8 phone:h-7"
         />
         {step && <StepTicker step={step} />}
-        <span className="px-corners px-corners-sm flex items-center gap-2 border-2 border-white/80 px-2.5 py-1 font-pixel text-xs tracking-widest sm:text-sm">
+        <span className="px-corners px-corners-sm flex items-center gap-2 border-2 border-white/80 px-2.5 py-1 font-pixel text-xs tracking-widest sm:text-sm phone:px-2 phone:py-0.5 phone:text-[0.7rem]">
           <PixelStar size={12} color="#FFFFFF" />
           <Jp>フォトブース</Jp> / 4-CUT
         </span>
       </header>
 
       {timer && (
-        <div className={`h-3 shrink-0 ${tone === "navy" ? "bg-white/15" : "bg-pp-blue-light"}`} aria-hidden>
+        <div className={`h-3 shrink-0 phone:h-2 ${tone === "navy" ? "bg-white/15" : "bg-pp-blue-light"}`} aria-hidden>
           {timer.runKey !== null && (
             <div
               key={timer.runKey}
