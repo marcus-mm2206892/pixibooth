@@ -14,9 +14,15 @@ import { DreamFilmLive } from "./DreamFilmLive";
 import { DREAM_FILM } from "@/lib/dreamFilm";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { ArtButton, Button, Jp, PixelFrame, PixelTag } from "./ui";
+import { ArtButton, Button, Jp, PixelFrame, PixelTag, useBlinkSchedule, type BlinkWindow } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** Press to Start over the 15 s auto-start: blinks for the first 5 s, still for 5 s, blinks for the last 5 s. */
+const START_BLINKS: readonly BlinkWindow[] = [
+  [0, 5000],
+  [10_000, TIMING.getReadyMs],
+];
 
 export function CameraBooth({ state, engine }: { state: BoothState; engine: BoothEngine }) {
   const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror } = state;
@@ -71,8 +77,9 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
   const pose = poseSlot !== null && poseSlot >= 0 ? (poses[poseSlot] ?? FALLBACK_POSE) : FALLBACK_POSE;
   const shotNumber = (activeSlot ?? 0) + 1;
   const primaryLabel = isRetake ? `Retake photo ${pad2(retakeSlot + 1)}` : "Press to start!";
-  // One key for the whole 30 s auto-start: the header bar, the ring and the timer above all follow it.
+  // One key for the whole 15 s auto-start: the header bar, the ring, the timer above and the blink all follow it.
   const readyKey = autoStart ? `${mode}-${retakeSlot}` : null;
+  const blinkStart = useBlinkSchedule(readyKey, START_BLINKS);
 
   // English status + a short Japanese kiosk label.
   let tag: string;
@@ -344,7 +351,9 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
               label={primaryLabel}
               width={326}
               height={104}
-              className="col-span-2 w-full justify-self-center phone:col-span-1 narrow:max-w-105 short:w-[94%]"
+              className={`col-span-2 w-full justify-self-center phone:col-span-1 narrow:max-w-105 short:w-[94%] ${
+                blinkStart ? "animate-arcade-soft" : ""
+              }`}
               disabled={!videoReady}
               onClick={() => engine.startCapture()}
             >
@@ -362,7 +371,7 @@ const RING_R = 19;
 const RING_LENGTH = 2 * Math.PI * RING_R;
 
 /**
- * The 30 s auto-start (not the 5 s photo countdown), drawn in the empty icon
+ * The 15 s auto-start (not the 5 s photo countdown), drawn in the empty icon
  * area of the Press to Start artwork. A full ring that empties clockwise; it
  * shares `runKey` and duration with the header bar, so both start in the same
  * commit and stay in step. Full and still until the camera is ready.

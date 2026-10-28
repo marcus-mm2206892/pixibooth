@@ -11,6 +11,22 @@ export function isFullscreen(): boolean {
   return !!(doc.fullscreenElement ?? doc.webkitFullscreenElement);
 }
 
+/** Element full screen, or the app launched full screen from the Home Screen (no browser bars). */
+export function isKioskFullscreen(): boolean {
+  if (isFullscreen()) return true;
+  return window.matchMedia("(display-mode: fullscreen)").matches || window.matchMedia("(display-mode: standalone)").matches;
+}
+
+/** Calls `onChange` whenever full screen is entered or left; returns the unsubscribe. */
+export function subscribeFullscreen(onChange: () => void): () => void {
+  document.addEventListener("fullscreenchange", onChange);
+  document.addEventListener("webkitfullscreenchange", onChange);
+  return () => {
+    document.removeEventListener("fullscreenchange", onChange);
+    document.removeEventListener("webkitfullscreenchange", onChange);
+  };
+}
+
 export function canFullscreen(): boolean {
   const el = document.documentElement as WebkitElement;
   return typeof el.requestFullscreen === "function" || typeof el.webkitRequestFullscreen === "function";

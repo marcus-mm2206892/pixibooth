@@ -5,6 +5,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
   type ReactNode,
@@ -216,6 +217,46 @@ export function useEnterAnimation<T extends HTMLElement>(): RefObject<T | null> 
     };
   }, []);
   return ref;
+}
+
+/** One blink of the standard arcade rhythm (.animate-arcade-soft in globals.css). */
+export const BLINK_MS = 900;
+
+/** [start, end) in ms since the schedule started. */
+export type BlinkWindow = readonly [number, number];
+
+/**
+ * Whether a button should blink now, given `windows` measured from when `runKey`
+ * became non-null (null stops it; a new key restarts it). With `repeatMs` the
+ * schedule loops. Every check is against one start time, so it never drifts.
+ * Pass module-level constants: new arrays each render would restart it.
+ */
+export function useBlinkSchedule(
+  runKey: string | number | null,
+  windows: readonly BlinkWindow[],
+  repeatMs?: number,
+): boolean {
+  const [blinking, setBlinking] = useState(false);
+  useEffect(() => {
+    if (runKey === null) return;
+    const start = performance.now();
+    const edges = windows.flat();
+    let timer = 0;
+    const tick = () => {
+      const elapsed = performance.now() - start;
+      const t = repeatMs ? elapsed % repeatMs : elapsed;
+      setBlinking(windows.some(([a, b]) => t >= a && t < b));
+      const ahead = edges.filter((e) => e > t);
+      const next = ahead.length ? Math.min(...ahead) : repeatMs;
+      if (next !== undefined) timer = window.setTimeout(tick, next - t);
+    };
+    timer = window.setTimeout(tick, 0);
+    return () => {
+      window.clearTimeout(timer);
+      setBlinking(false);
+    };
+  }, [runKey, windows, repeatMs]);
+  return runKey !== null && blinking;
 }
 
 export function ConfirmDialog({

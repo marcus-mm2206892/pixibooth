@@ -57,7 +57,7 @@ export const TIMING = {
   /** Style screen time limit; then it continues to the camera with the current picks. */
   styleSelectMs: 60_000,
   /** "Get ready to pose" time limit; then the shots start on their own. */
-  getReadyMs: 30_000,
+  getReadyMs: 15_000,
 };
 
 export type BoothSettings = {

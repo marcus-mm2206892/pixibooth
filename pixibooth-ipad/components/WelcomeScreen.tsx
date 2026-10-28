@@ -1,12 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import { ERROR_COPY } from "@/lib/cameraErrors";
-import { enterFullscreen } from "@/lib/fullscreen";
+import { enterFullscreen, isKioskFullscreen, subscribeFullscreen } from "@/lib/fullscreen";
 import { KioskShell } from "./KioskShell";
-import { ArtButton, useEnterAnimation } from "./ui";
+import { ArtButton, BLINK_MS, useBlinkSchedule, useEnterAnimation, type BlinkWindow } from "./ui";
+
+/** Start: 5 s still, then 3 blinks, looping until it's pressed. */
+const START_STILL_MS = 5000;
+const START_BLINKS: readonly BlinkWindow[] = [[START_STILL_MS, START_STILL_MS + 3 * BLINK_MS]];
+const START_REPEAT_MS = START_STILL_MS + 3 * BLINK_MS;
 
 /**
  * The home screen is laid out on a design board that scales uniformly to fit
@@ -29,6 +34,8 @@ export function WelcomeScreen({ state, engine }: { state: BoothState; engine: Bo
   const root = useEnterAnimation<HTMLDivElement>();
   const { cameraStatus, stream, error } = state;
   const live = cameraStatus === "live" && !!stream;
+  const fullscreen = useSyncExternalStore(subscribeFullscreen, isKioskFullscreen, () => false);
+  const blink = useBlinkSchedule(live && fullscreen ? "start" : null, START_BLINKS, START_REPEAT_MS);
 
   // Browsers show their own permission prompt here; Safari allows it without a tap.
   useEffect(() => {
@@ -47,6 +54,7 @@ export function WelcomeScreen({ state, engine }: { state: BoothState; engine: Bo
               width={499}
               height={159}
               style={{ width: u(392) }}
+              className={blink ? "animate-arcade-soft" : ""}
               disabled={!live}
               onClick={() => {
                 enterFullscreen();

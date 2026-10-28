@@ -15,7 +15,18 @@ import { ERROR_COPY } from "@/lib/cameraErrors";
 import { bump } from "@/lib/motion";
 import { KioskShell } from "./KioskShell";
 import { PixelStar } from "./PixelStar";
-import { ArtButton, Button, Jp, PixelFrame, PixelTag, ScreenTitle, useEnterAnimation } from "./ui";
+import {
+  ArtButton,
+  BLINK_MS,
+  Button,
+  Jp,
+  PixelFrame,
+  PixelTag,
+  ScreenTitle,
+  useBlinkSchedule,
+  useEnterAnimation,
+  type BlinkWindow,
+} from "./ui";
 
 const FRAME_W = 480;
 const FRAME_H = Math.round(FRAME_W / SLOT_ASPECT);
@@ -55,6 +66,9 @@ function FilterSample({ filter }: { filter: FilterId }) {
     />
   );
 }
+
+/** Continue to camera: 3 blinks at 10 s, 30 s and 55 s into the time limit. */
+const CONTINUE_BLINKS: readonly BlinkWindow[] = [10_000, 30_000, 55_000].map((t) => [t, t + 3 * BLINK_MS] as const);
 
 /**
  * Step 1: strip color + filter on one screen. The strip preview is drawn from
@@ -137,6 +151,8 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
   useEffect(() => {
     if (timeUp && liveNow) engine.showCamera();
   }, [timeUp, liveNow, engine]);
+  // Same start as the time limit (mount); picking colors or filters doesn't restart it.
+  const blinkContinue = useBlinkSchedule("style", CONTINUE_BLINKS);
 
   return (
     <KioskShell
@@ -306,7 +322,9 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
             label="Continue to camera"
             width={360}
             height={115}
-            className="h-[clamp(76px,12vh,112px)] narrow:mx-auto narrow:h-auto narrow:w-full narrow:max-w-110"
+            className={`h-[clamp(76px,12vh,112px)] narrow:mx-auto narrow:h-auto narrow:w-full narrow:max-w-110 ${
+              blinkContinue && liveNow ? "animate-arcade-soft" : ""
+            }`}
             disabled={!liveNow}
             onClick={() => engine.showCamera()}
           />
