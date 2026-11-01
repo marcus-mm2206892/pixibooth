@@ -6,14 +6,12 @@ import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Reload } from "pixelartic
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import type { FilterId } from "@/lib/session";
 import { TIMING, ticketNumber } from "@/lib/session";
-import type { PhotoSource } from "@/lib/photos";
 import { FILTERS, FILTER_ORDER } from "@/lib/filters";
-import { SLOT_ASPECT, TEMPLATES, TEMPLATE_ORDER, renderStrip } from "@/lib/photostrip";
-import { getSamplePhotos } from "@/lib/sampleScene";
-import { coverCrop, get2d, makeCanvas, releaseCanvas } from "@/lib/canvas";
+import { TEMPLATES, TEMPLATE_ORDER } from "@/lib/photostrip";
 import { ERROR_COPY } from "@/lib/cameraErrors";
 import { bump } from "@/lib/motion";
 import { KioskShell } from "./KioskShell";
+import { LiveStripPreview } from "./LiveStripPreview";
 import { PixelStar } from "./PixelStar";
 import {
   ArtButton,
@@ -27,24 +25,6 @@ import {
   useEnterAnimation,
   type BlinkWindow,
 } from "./ui";
-
-const FRAME_W = 480;
-const FRAME_H = Math.round(FRAME_W / SLOT_ASPECT);
-/** Live strip preview refresh, ~10 fps. */
-const STRIP_INTERVAL_MS = 100;
-
-/** Copies the current video frame into `canvas`, center-cover-cropped and mirrored like the capture. */
-function grabFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement, mirror: boolean) {
-  const ctx = get2d(canvas);
-  const crop = coverCrop(video.videoWidth, video.videoHeight, canvas.width / canvas.height);
-  ctx.save();
-  if (mirror) {
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-  }
-  ctx.drawImage(video, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, canvas.width, canvas.height);
-  ctx.restore();
-}
 
 /** Example photo for each filter, shown on the filter cards. */
 const FILTER_PREVIEW: Record<FilterId, string> = {
@@ -67,81 +47,23 @@ function FilterSample({ filter }: { filter: FilterId }) {
   );
 }
 
-/** Continue to camera: 3 blinks at 10 s, 30 s and 55 s into the time limit. */
+/** Continue to camera: 3 bounces at 10 s, 30 s and 55 s into the time limit. */
 const CONTINUE_BLINKS: readonly BlinkWindow[] = [10_000, 30_000, 55_000].map((t) => [t, t + 3 * BLINK_MS] as const);
 
 /**
- * Step 1: strip color + filter on one screen. The strip preview is drawn from
- * the live camera with the real export renderer, so customers see themselves
- * in the exact color and filter they'll get.
+ * Step 1: strip color + filter on one screen. The strip preview shows the live
+ * camera in the real strip artwork (see LiveStripPreview), so customers see
+ * themselves in the color and filter they'll get.
  */
 export function StyleScreen({ state, engine }: { state: BoothState; engine: BoothEngine }) {
   const root = useEnterAnimation<HTMLDivElement>();
   const { session, stream, cameraStatus, error, mirror } = state;
   const { template, filter } = session;
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const stripRef = useRef<HTMLCanvasElement>(null);
   const cards = useRef<Record<string, HTMLElement | null>>({});
-  const opts = useRef({ template, filter, mirror, createdAt: session.createdAt });
   const colorRow = useRef<HTMLDivElement>(null);
   const filterRow = useRef<HTMLDivElement>(null);
   const colorEdges = useScrollEdges(colorRow);
   const filterEdges = useScrollEdges(filterRow);
-
-  useEffect(() => {
-    opts.current = { template, filter, mirror, createdAt: session.createdAt };
-  }, [template, filter, mirror, session.createdAt]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    if (video.srcObject !== stream) video.srcObject = stream;
-    if (stream) video.play().catch(() => {});
-  }, [stream]);
-
-  // Renders the strip ~10 fps from the camera, or once per change with sample art.
-  useEffect(() => {
-    const frame = makeCanvas(FRAME_W, FRAME_H);
-    const live: PhotoSource = { image: frame, width: FRAME_W, height: FRAME_H, seed: 7 };
-    const samples = getSamplePhotos();
-    let raf = 0;
-    let last = 0;
-    let busy = false;
-    let lastKey = "";
-
-    const loop = (now: number) => {
-      raf = requestAnimationFrame(loop);
-      if (busy || now - last < STRIP_INTERVAL_MS) return;
-      last = now;
-      const video = videoRef.current;
-      const hasFrame =
-        !!video && !!video.srcObject && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth > 0;
-      const { template, filter, mirror, createdAt } = opts.current;
-      const key = `${hasFrame}|${template}|${filter}`;
-      if (!hasFrame && key === lastKey) return;
-      lastKey = key;
-      if (hasFrame) grabFrame(video!, frame, mirror);
-      const strip = stripRef.current;
-      if (!strip) return;
-      busy = true;
-      renderStrip(strip, {
-        photos: hasFrame ? [live, live, live, live] : samples,
-        template,
-        filter,
-        width: 360,
-        date: createdAt ? new Date(createdAt) : undefined,
-      })
-        .catch((err) => console.error("Live strip preview failed", err))
-        .finally(() => {
-          busy = false;
-        });
-    };
-    raf = requestAnimationFrame(loop);
-    return () => {
-      cancelAnimationFrame(raf);
-      releaseCanvas(frame);
-    };
-  }, []);
 
   const liveNow = cameraStatus === "live" && !!stream;
   const errorCopy = error ? ERROR_COPY[error] : null;
@@ -171,19 +93,18 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
         {/* Live preview of the finished strip: the full height of the screen. */}
         <section data-enter style={{ gridArea: "preview" }} className="flex min-h-0 flex-col gap-2" aria-label="Strip preview">
           <div className="fit-box relative flex flex-1 items-center justify-center">
-            <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.3)]">
-              <canvas
-                ref={stripRef}
-                width={360}
-                height={1080}
-                role="img"
-                aria-label={`${TEMPLATES[template].label} strip with ${FILTERS[filter].label} filter`}
-                className={`block h-full w-full ${template === "white" ? "ring-1 ring-pp-blue-line" : ""}`}
-                style={{ background: TEMPLATES[template].hex }}
+            {/* The strip is an opaque rectangle, so a box-shadow looks identical to the old
+                drop-shadow filter but isn't re-rasterized on every live camera frame. */}
+            <div className="fit-strip shadow-[5px_6px_0_rgba(10,45,105,0.3)]">
+              <LiveStripPreview
+                stream={stream}
+                live={liveNow}
+                template={template}
+                filter={filter}
+                mirror={mirror}
+                date={session.createdAt || undefined}
               />
             </div>
-            {/* Frame source for the preview; never shown, never captured. */}
-            <video ref={videoRef} autoPlay playsInline muted aria-hidden className="pointer-events-none absolute size-px opacity-0" />
           </div>
 
           <div className="flex min-h-10 flex-wrap items-center justify-center gap-2 text-center phone:min-h-0 phone:gap-1">
@@ -334,7 +255,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
             width={360}
             height={115}
             className={`h-[clamp(76px,12vh,112px)] narrow:mx-auto narrow:h-auto narrow:w-full narrow:max-w-110 phone:h-16 phone:w-auto [@media(max-height:500px)]:h-12 ${
-              blinkContinue && liveNow ? "animate-arcade-soft" : ""
+              blinkContinue && liveNow ? "animate-soft-bounce" : ""
             }`}
             disabled={!liveNow}
             onClick={() => engine.showCamera()}

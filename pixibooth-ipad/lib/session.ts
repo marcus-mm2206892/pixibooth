@@ -12,7 +12,8 @@ export type TemplateColor =
   | "sakura"
   | "matcha"
   | "butter"
-  | "lavender";
+  | "lavender"
+  | "pocketid";
 
 export type FilterId = "none" | "vintage" | "dreamfilm";
 

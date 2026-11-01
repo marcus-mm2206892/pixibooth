@@ -13,24 +13,12 @@ import { MockQr } from "./MockQr";
 import { PhotostripPreview } from "./PhotostripPreview";
 import { PixelStar } from "./PixelStar";
 import { StarCelebration } from "./StarCelebration";
-import {
-  ArtButton,
-  Jp,
-  PixelFrame,
-  RegMarks,
-  useBlinkSchedule,
-  useEnterAnimation,
-  type BlinkWindow,
-} from "./ui";
+import { ArtButton, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
 /** The QR gallery isn't live yet; flip on once the scan link actually serves photos. */
 const SHOW_QR = false;
-
-/** Finish: blinks after 4 s with no photo picked; right away once the retake is used. */
-const FINISH_IDLE_BLINK: readonly BlinkWindow[] = [[4000, Infinity]];
-const FINISH_NOW_BLINK: readonly BlinkWindow[] = [[0, Infinity]];
 
 /**
  * Step 3, the last screen of the session. Left: the finished strip plus one
@@ -50,9 +38,13 @@ export function KeepScreen({
   const [selected, setSelected] = useState<number | null>(null);
   const retakesLeft = Math.max(0, MAX_RETAKES - session.retakesUsed);
   const strip = useStripPng(session);
-  // Picking a photo stops it; un-picking restarts the 4 s wait (null, then a fresh key).
-  const finishKey = retakesLeft === 0 ? "final" : selected === null ? "idle" : null;
-  const blinkFinish = useBlinkSchedule(finishKey, retakesLeft === 0 ? FINISH_NOW_BLINK : FINISH_IDLE_BLINK);
+  // Attention order: Download bounces first (paused while a photo is picked for retake);
+  // once this strip has been downloaded, Download stops and Finish blinks until pressed.
+  // Keyed to the photos array, so a retake (new array) brings the bounce back.
+  const [downloadedPhotos, setDownloadedPhotos] = useState<PhotoSession["photos"] | null>(null);
+  const downloaded = downloadedPhotos === session.photos;
+  const bounceDownload = !!strip && !downloaded && selected === null;
+  const blinkFinish = downloaded;
 
   return (
     <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)} bodyClassName="narrow:overflow-y-auto">
@@ -214,10 +206,13 @@ export function KeepScreen({
               label={strip ? "Download strip" : "Preparing download…"}
               width={320}
               height={104}
-              className="w-full max-w-[16rem] narrow:h-[clamp(60px,8vh,84px)] narrow:w-auto phone:h-auto phone:w-full phone:max-w-[14rem]"
+              className={`w-full max-w-[16rem] narrow:h-[clamp(60px,8vh,84px)] narrow:w-auto phone:h-auto phone:w-full phone:max-w-[14rem] ${
+                bounceDownload ? "animate-soft-bounce" : ""
+              }`}
               disabled={!strip}
               onClick={() => {
                 if (!strip) return;
+                setDownloadedPhotos(session.photos);
                 // Share sheet must open synchronously from the tap, so the PNG is rendered ahead of time.
                 if (canShareFiles()) void shareFiles([strip]);
                 else downloadBlob(strip.blob, strip.filename);

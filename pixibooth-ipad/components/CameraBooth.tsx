@@ -345,7 +345,8 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
             className="phone:order-2 phone:col-span-2"
             photos={photos}
             filter={filter}
-            activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : nextEmptySlot(photos)}
+            // Before the shots start, no frame is active: Frame 01 stays dashed like the others.
+            activeSlot={capturing || phase === "paused" ? activeSlot : isRetake ? retakeSlot : idle ? null : nextEmptySlot(photos)}
           />
 
           {phase === "camera-ready" && (

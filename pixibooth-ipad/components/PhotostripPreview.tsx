@@ -59,7 +59,7 @@ export function PhotostripPreview({
       height={width * 3}
       role="img"
       aria-label={`${TEMPLATES[template].label} photostrip preview`}
-      className={`block h-full w-full ${template === "white" ? "ring-1 ring-pp-blue-line" : ""} ${className}`}
+      className={`block h-full w-full ${TEMPLATES[template].outlined ? "ring-1 ring-pp-blue-line" : ""} ${className}`}
       style={{ background: TEMPLATES[template].hex }}
     />
   );

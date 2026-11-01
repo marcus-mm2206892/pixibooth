@@ -794,6 +794,36 @@ body {
   animation: arcade-pulse 0.9s infinite;
 }
 
+/* Attention bounce for big art buttons: a small hop and a tiny rebound, one per
+   0.9 s beat (same rhythm as the blink it replaces). Uses `translate`, not
+   `transform`, so the button's press dip still works mid-bounce. */
+@keyframes soft-bounce {
+  0%,
+  100% {
+    translate: 0 0;
+    animation-timing-function: cubic-bezier(0.33, 0, 0.3, 1);
+  }
+  32% {
+    translate: 0 -7px;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.6);
+  }
+  58% {
+    translate: 0 0;
+    animation-timing-function: cubic-bezier(0.33, 0, 0.3, 1);
+  }
+  72% {
+    translate: 0 -2px;
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.6);
+  }
+  84% {
+    translate: 0 0;
+  }
+}
+
+.animate-soft-bounce {
+  animation: soft-bounce 0.9s infinite;
+}
+
 /* Same dot grid as .px-dots, but barely there (for dark backgrounds). */
 .px-dots-faint {
   background-image: radial-gradient(rgb(221 235 255 / 0.12) 1.2px, transparent 1.2px);
@@ -803,6 +833,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-arcade,
   .animate-arcade-soft,
+  .animate-soft-bounce,
   .animate-ring-blink,
   .animate-edge-blink {
     animation: none;
