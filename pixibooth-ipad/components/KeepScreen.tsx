@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { Check, Undo } from "pixelarticons/react";
 import type { PhotoSession } from "@/lib/session";
-import { MAX_RETAKES, photoFilename, stripFilename, ticketNumber } from "@/lib/session";
-import { saveFiles } from "@/lib/downloads";
+import { allPhotosFilename, MAX_RETAKES, stripFilename, ticketNumber } from "@/lib/session";
+import { canShareFiles, downloadAll, downloadBlob, isTouchDevice, saveFiles, shareFiles, type NamedBlob } from "@/lib/downloads";
 import { decodePhoto, renderPhotoJpeg } from "@/lib/photos";
 import { renderStripPng } from "@/lib/photostrip";
 import { FilteredPhoto } from "./FilteredPhoto";
@@ -13,8 +13,9 @@ import { MockQr } from "./MockQr";
 import { PhotostripPreview } from "./PhotostripPreview";
 import { PhotoViewer, type ViewerItem } from "./PhotoViewer";
 import { PixelStar } from "./PixelStar";
+import { INSTAGRAM_DM_URL, PrintRequestDialog, type PrintRequestState } from "./PrintRequestDialog";
 import { StarCelebration } from "./StarCelebration";
-import { ArtButton, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
+import { ArtButton, GradientButton, Jp, PixelFrame, RegMarks, useEnterAnimation } from "./ui";
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
@@ -39,8 +40,9 @@ export function KeepScreen({
   const [selected, setSelected] = useState<number | null>(null);
   const retakesLeft = Math.max(0, MAX_RETAKES - session.retakesUsed);
   const strip = useStripPng(session);
-  const photoFiles = usePhotoFiles(session);
-  const [viewer, setViewer] = useState<"strip" | "photos" | null>(null);
+  const allPhotos = useAllPhotos(session);
+  const [viewer, setViewer] = useState<"strip" | null>(null);
+  const [printRequest, setPrintRequest] = useState<PrintRequestState | null>(null);
   // Attention order: Download bounces first (paused while a photo is picked for retake);
   // once this strip has been downloaded, Download stops and Finish blinks until pressed.
   // Keyed to the photos array, so a retake (new array) brings the bounce back.
@@ -48,6 +50,50 @@ export function KeepScreen({
   const downloaded = downloadedPhotos === session.photos;
   const bounceDownload = !!strip && !downloaded && selected === null;
   const blinkFinish = downloaded;
+
+  /**
+   * "Send to PixiPocket for Printing". Phones/tablets that can share files get the
+   * native share sheet (customer picks Instagram → @pixipocket_ themselves). Elsewhere,
+   * including desktops whose share menu has no Instagram, the strip downloads and the
+   * DM opens so they can attach it. Runs synchronously from the tap (share/popup need it).
+   */
+  /**
+   * "Download All Photos": one tap, no picker. Share sheet where files can be shared
+   * (iPad/iPhone: "Save 4 Images" → Photos), otherwise four plain downloads.
+   */
+  const downloadAllPhotos = () => {
+    if (!allPhotos) return;
+    if (canShareFiles(allPhotos)) {
+      void shareFiles(allPhotos).then((result) => result === "failed" && downloadAll(allPhotos));
+      return;
+    }
+    downloadAll(allPhotos);
+  };
+
+  /**
+   * "Send to PixiPocket for Printing" opens the modal first; this runs from the modal's
+   * Send tap (synchronously, as the share sheet and the new tab both need that tap).
+   * Phones/tablets that can share files get the share sheet (customer picks Instagram →
+   * @pixipocket_ themselves). Elsewhere, including desktops whose share menu has no
+   * Instagram, the strip downloads and the DM opens so they can attach it.
+   */
+  const printViaShare = !!strip && isTouchDevice() && canShareFiles([strip]);
+  const sendForPrinting = () => {
+    if (!strip) return;
+    if (printViaShare) {
+      void shareFiles([strip]).then((result) => {
+        if (result === "shared") setPrintRequest("shared");
+        else if (result === "failed") {
+          downloadBlob(strip.blob, strip.filename);
+          setPrintRequest("fallback");
+        }
+      });
+      return;
+    }
+    downloadBlob(strip.blob, strip.filename);
+    window.open(INSTAGRAM_DM_URL, "_blank", "noopener,noreferrer");
+    setPrintRequest("fallback");
+  };
 
   return (
     <KioskShell rootRef={root} step={3} ticket={ticketNumber(session)} bodyClassName="narrow:overflow-y-auto">
@@ -224,17 +270,33 @@ export function KeepScreen({
                     });
                   }}
                 />
-                <ArtButton
-                  src="/ui/photos-button.svg"
-                  label={photoFiles ? "Download individual photos" : "Preparing photos…"}
+                <GradientButton
+                  tone="pink"
+                  icon={<PhotosIcon />}
+                  label="Download All Photos"
+                  jp="写真をまとめてダウンロード"
+                  aria-label={allPhotos ? undefined : "Preparing photos…"}
                   width={348}
                   height={89}
                   style={{ flex: `${348 / 89} 1 0` }}
                   className="min-w-0"
-                  disabled={!photoFiles}
-                  onClick={() => photoFiles && setViewer("photos")}
+                  disabled={!allPhotos}
+                  onClick={downloadAllPhotos}
                 />
               </div>
+
+              <GradientButton
+                tone="coral"
+                icon={<PrinterIcon />}
+                label="Send to PixiPocket for Printing"
+                jp="印刷を依頼する"
+                aria-label={strip ? undefined : "Preparing photostrip…"}
+                width={700}
+                height={100}
+                className="w-full"
+                disabled={!strip}
+                onClick={() => strip && setPrintRequest("intro")}
+              />
 
               <ArtButton
                 src="/ui/finish-button.svg"
@@ -250,7 +312,14 @@ export function KeepScreen({
       </div>
 
       {viewer === "strip" && strip && <PhotoViewer kind="strip" items={[strip]} onClose={() => setViewer(null)} />}
-      {viewer === "photos" && photoFiles && <PhotoViewer kind="photos" items={photoFiles} onClose={() => setViewer(null)} />}
+      {printRequest && (
+        <PrintRequestDialog
+          state={printRequest}
+          canShare={printViaShare}
+          onSend={sendForPrinting}
+          onClose={() => setPrintRequest(null)}
+        />
+      )}
     </KioskShell>
   );
 }
@@ -281,27 +350,50 @@ function useStripPng(session: PhotoSession): ViewerItem | null {
   return strip?.photos === photos ? strip.file : null;
 }
 
-/** Full-resolution single photos (filter baked in), ready before the tap for the same reason. */
-function usePhotoFiles(session: PhotoSession): ViewerItem[] | null {
-  const [files, setFiles] = useState<{ photos: PhotoSession["photos"]; items: ViewerItem[] } | null>(null);
+/**
+ * The four full-resolution photos (filter baked in, captured pixels only, no
+ * borders), prepared ahead of the tap so the share sheet can open from it.
+ * Keyed to the photos array: a retake swaps it, so the replacement is used.
+ */
+function useAllPhotos(session: PhotoSession): NamedBlob[] | null {
+  const [files, setFiles] = useState<{ photos: PhotoSession["photos"]; items: NamedBlob[] } | null>(null);
   const { photos, filter } = session;
-  const filenames = photos.map((_, i) => photoFilename(session, i)).join("|");
 
   useEffect(() => {
     let cancelled = false;
-    let made: ViewerItem[] = [];
-    const names = filenames.split("|");
     (async () => {
       const blobs = await Promise.all(photos.map((p) => (p ? renderPhotoJpeg(p, filter) : null)));
       if (cancelled) return;
-      made = blobs.flatMap((blob, i) => (blob ? [{ blob, filename: names[i], url: URL.createObjectURL(blob) }] : []));
-      setFiles({ photos, items: made });
+      const items = blobs.flatMap((blob, i) => (blob ? [{ blob, filename: allPhotosFilename(i) }] : []));
+      setFiles({ photos, items });
     })().catch((err) => console.error("Photo export failed", err));
     return () => {
       cancelled = true;
-      made.forEach((item) => URL.revokeObjectURL(item.url));
     };
-  }, [photos, filter, filenames]);
+  }, [photos, filter]);
 
   return files?.photos === photos ? files.items : null;
+}
+
+/** Four tiles, echoing the icon on the original photos-button artwork. */
+function PhotosIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinejoin="round">
+      <rect x="2.5" y="2.5" width="8.5" height="8.5" rx="1" transform="rotate(-4 6.75 6.75)" />
+      <rect x="13" y="2.5" width="8.5" height="8.5" rx="1" transform="rotate(5 17.25 6.75)" />
+      <rect x="2.5" y="13" width="8.5" height="8.5" rx="1" transform="rotate(3 6.75 17.25)" />
+      <rect x="13" y="13" width="8.5" height="8.5" rx="1" transform="rotate(-3 17.25 17.25)" />
+    </svg>
+  );
+}
+
+function PrinterIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round">
+      <path d="M6.5 9V2.5h11V9" />
+      <path d="M6.5 17.5H4a1.5 1.5 0 0 1-1.5-1.5v-5.5A1.5 1.5 0 0 1 4 9h16a1.5 1.5 0 0 1 1.5 1.5V16a1.5 1.5 0 0 1-1.5 1.5h-2.5" />
+      <path d="M6.5 14h11v7.5h-11z" />
+      <path d="M17.5 12h.01" strokeWidth={2.8} />
+    </svg>
+  );
 }

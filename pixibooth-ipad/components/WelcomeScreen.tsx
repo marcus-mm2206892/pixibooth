@@ -100,7 +100,7 @@ function Brand() {
         style={{ width: b(340) }}
       />
       <div className="absolute flex flex-col items-center text-pp-cobalt" style={{ left: b(172), top: b(150) }}>
-        <span lang="ja" className="font-bold leading-none tracking-[0.04em]" style={{ fontSize: b(40) }}>
+        <span lang="ja" translate="no" className="font-bold leading-none tracking-[0.04em]" style={{ fontSize: b(40) }}>
           プリクラ
         </span>
         <span
@@ -117,7 +117,7 @@ function Brand() {
 function SlotHeading({ ja, en }: { ja: ReactNode; en: string }) {
   return (
     <div className="whitespace-nowrap">
-      <p lang="ja" className="font-bold leading-tight text-pp-cobalt" style={{ fontSize: p(24) }}>
+      <p lang="ja" translate="no" className="font-bold leading-tight text-pp-cobalt" style={{ fontSize: p(24) }}>
         {ja}
       </p>
       <p className="leading-tight tracking-[0.03em] text-pp-slate" style={{ fontSize: p(18) }}>
@@ -130,7 +130,7 @@ function SlotHeading({ ja, en }: { ja: ReactNode; en: string }) {
 function SlotCaption({ ja, en }: { ja: string; en: string }) {
   return (
     <div className="whitespace-nowrap">
-      <p lang="ja" className="font-bold leading-tight text-pp-blue-deep" style={{ fontSize: p(17) }}>
+      <p lang="ja" translate="no" className="font-bold leading-tight text-pp-blue-deep" style={{ fontSize: p(17) }}>
         {ja}
       </p>
       <p className="leading-tight text-pp-slate" style={{ fontSize: p(14) }}>
@@ -288,7 +288,7 @@ function MirrorPreview({
             >
               {status === "starting" || (status === "live" && !showing) ? (
                 <>
-                  <p lang="ja" className="font-bold" style={{ fontSize: u(18) }}>
+                  <p lang="ja" translate="no" className="font-bold" style={{ fontSize: u(18) }}>
                     カメラを起動中…
                   </p>
                   <p className="text-white/75" style={{ fontSize: u(14) }}>
@@ -308,7 +308,7 @@ function MirrorPreview({
                     className="min-h-12 rounded-full bg-white font-bold text-pp-cobalt shadow-[0_4px_12px_rgba(0,0,0,0.25)] active:scale-[0.98]"
                     style={{ padding: `${u(10)} ${u(24)}` }}
                   >
-                    <span lang="ja" className="block leading-tight" style={{ fontSize: u(17) }}>
+                    <span lang="ja" translate="no" className="block leading-tight" style={{ fontSize: u(17) }}>
                       カメラをオンにする
                     </span>
                     <span className="block leading-tight" style={{ fontSize: u(13) }}>
@@ -325,10 +325,10 @@ function MirrorPreview({
       <div className="ml-[40%] flex items-stretch phone:hidden" style={{ marginTop: u(8), gap: u(9) }} aria-hidden>
         <span className="bg-pp-blue-deep" style={{ width: u(3) }} />
         <div className="whitespace-nowrap">
-          <p lang="ja" className="leading-tight text-pp-slate" style={{ fontSize: u(13) }}>
+          <p lang="ja" translate="no" className="leading-tight text-pp-slate" style={{ fontSize: u(13) }}>
             ガイドライン
           </p>
-          <p lang="ja" className="font-bold leading-tight text-pp-blue-deep" style={{ fontSize: u(17) }}>
+          <p lang="ja" translate="no" className="font-bold leading-tight text-pp-blue-deep" style={{ fontSize: u(17) }}>
             顔の中心
           </p>
           <p className="leading-tight tracking-[0.03em] text-pp-slate" style={{ fontSize: u(14) }}>
@@ -373,7 +373,7 @@ function HowItWorks() {
           <StepNumber n={1} inverse />
           <Image src="/ui/camera-icon.svg" alt="" width={62} height={49} unoptimized style={{ height: g(40), width: "auto" }} />
           <div>
-            <p lang="ja" className={ja} style={jaStyle}>
+            <p lang="ja" translate="no" className={ja} style={jaStyle}>
               撮影をはじめる
             </p>
             <p className={en} style={enStyle}>
@@ -387,7 +387,7 @@ function HowItWorks() {
       <li className={cell} style={cellStyle}>
         <Image src="/ui/friends-posing.svg" alt="" width={60} height={46} unoptimized style={{ height: g(46), width: "auto" }} />
         <div className="text-pp-cobalt">
-          <p lang="ja" className={ja} style={jaStyle}>
+          <p lang="ja" translate="no" className={ja} style={jaStyle}>
             <StepNumber n={2} />
             写真をとる
           </p>
@@ -399,7 +399,7 @@ function HowItWorks() {
       <li className={cell} style={cellStyle}>
         <Image src="/ui/photostrips-icon.svg" alt="" width={80} height={69} unoptimized style={{ height: g(50), width: "auto" }} />
         <div className="text-pp-cobalt">
-          <p lang="ja" className={ja} style={jaStyle}>
+          <p lang="ja" translate="no" className={ja} style={jaStyle}>
             <StepNumber n={3} />
             できあがり!
           </p>
@@ -411,7 +411,7 @@ function HowItWorks() {
       <li className={`${cell} phone:whitespace-normal`} style={cellStyle}>
         <Image src="/ui/warning-sign.svg" alt="" width={308} height={308} unoptimized style={{ height: g(38), width: "auto" }} />
         <div>
-          <p lang="ja" className="font-bold leading-tight text-pp-red" style={{ fontSize: g(16) }}>
+          <p lang="ja" translate="no" className="font-bold leading-tight text-pp-red" style={{ fontSize: g(16) }}>
             1ページごとに制限時間があります
           </p>
           <p className={`${en} text-pp-blue-deep`} style={enStyle}>

@@ -78,14 +78,19 @@ export function drawFilteredPhoto(
   applyFilter(ctx, w, h, filter, source.seed);
 }
 
-/** Full-resolution individual photo with the session filter baked in. */
+/**
+ * Full-resolution individual photo with the session filter baked in: the
+ * captured pixels only, same size and orientation, no border or padding.
+ * Unfiltered photos are the original capture bytes; filtered ones are
+ * re-encoded once at high quality to keep generation loss minimal.
+ */
 export async function renderPhotoJpeg(photo: CapturedPhoto, filter: FilterId): Promise<Blob> {
   if (filter === "none") return photo.blob;
   const source = await decodePhoto(photo);
   const canvas = makeCanvas(photo.width, photo.height);
   try {
     drawFilteredPhoto(canvas, source, filter);
-    return await canvasToBlob(canvas, "image/jpeg", 0.92);
+    return await canvasToBlob(canvas, "image/jpeg", 0.95);
   } finally {
     releaseCanvas(canvas);
   }

@@ -332,7 +332,7 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                       : "5-second countdown • Pose tips • 4 photos"}
                 </p>
                 {idle && !isRetake && (
-                  <p lang="ja" className="mt-1 text-[clamp(0.95rem,2.1vh,1.1rem)] leading-snug text-pp-red phone:mt-0.5 phone:text-xs">
+                  <p lang="ja" translate="no" className="mt-1 text-[clamp(0.95rem,2.1vh,1.1rem)] leading-snug text-pp-red phone:mt-0.5 phone:text-xs">
                     5秒カウントダウン・ポーズのヒント・4枚撮影
                   </p>
                 )}

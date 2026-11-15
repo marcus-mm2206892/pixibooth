@@ -42,6 +42,10 @@ export const metadata: Metadata = {
     title: "pixipocket",
     statusBarStyle: "black-translucent",
   },
+  // English page with intentional Japanese accents: tell Chrome not to offer translating it.
+  other: {
+    google: "notranslate",
+  },
 };
 
 export const viewport: Viewport = {
@@ -55,8 +59,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
+    // lang="en": English is the primary language (Japanese spans carry lang="ja").
+    // translate="no": the bilingual UI is the design; keep browser translators off it.
     <html
       lang="en"
+      translate="no"
       className={`${geistSans.variable} ${geistMono.variable} ${barlowCondensed.variable} ${dotGothic.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">

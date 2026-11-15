@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
+  // Primary language for browsers' language detection (pages also declare <html lang="en">).
+  async headers() {
+    return [{ source: "/:path*", headers: [{ key: "Content-Language", value: "en" }] }];
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

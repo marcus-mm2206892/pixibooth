@@ -155,3 +155,8 @@ export function photoFilename(session: PhotoSession, index: number): string {
   const filter = session.filter === "none" ? "" : `-${session.filter}`;
   return `pixipocket-${session.id}-photo-${index + 1}${filter}.jpg`;
 }
+
+/** "Download All Photos" file names: photo_01.jpg … photo_04.jpg. */
+export function allPhotosFilename(index: number): string {
+  return `photo_${pad(index + 1)}.jpg`;
+}

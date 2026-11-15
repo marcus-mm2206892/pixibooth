@@ -666,6 +666,60 @@ body {
   border-radius: 18px;
 }
 
+/*
+ * GradientButton: same shape as the button artwork (inset face, ~4.5% rim,
+ * rounded ends, light-to-dark vertical gradient). Sizes scale with the button
+ * box via container units, like the artwork does.
+ */
+.grad-btn {
+  container-type: size;
+}
+.grad-btn-face {
+  position: absolute;
+  inset: 6% 1.8%;
+  display: flex;
+  align-items: center;
+  gap: 7cqh;
+  padding: 0 9cqh 0 11cqh;
+  border: 4.5cqh solid var(--gb-rim);
+  border-radius: 17cqh;
+  background: linear-gradient(180deg, var(--gb-top), var(--gb-bottom));
+  color: #fff;
+  font-family: "Helvetica Neue", Helvetica, Arial, var(--font-geist-sans), sans-serif;
+  font-weight: 700;
+  pointer-events: none;
+}
+.grad-btn-icon {
+  display: flex;
+  flex-shrink: 0;
+  width: 34cqh;
+  height: 34cqh;
+}
+.grad-btn-icon > svg {
+  width: 100%;
+  height: 100%;
+}
+.grad-btn-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  white-space: nowrap;
+}
+.grad-btn-en {
+  font-size: min(31cqh, 7.4cqw);
+  line-height: 1.05;
+  letter-spacing: -0.005em;
+}
+.grad-btn-jp {
+  margin-top: 3cqh;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-size: min(18cqh, 4.6cqw);
+  line-height: 1.1;
+}
+
 /* Dotted pixel rule, like a ticket perforation. */
 .px-rule {
   height: 2px;

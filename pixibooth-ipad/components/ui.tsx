@@ -75,6 +75,60 @@ export function ArtButton({
   );
 }
 
+/** Colours sampled from the supplied button artwork (rim, gradient top, gradient bottom). */
+const GRADIENT_TONES = {
+  pink: { rim: "#d516a6", top: "#fa5ddb", bottom: "#d516a6" },
+  purple: { rim: "#9f16d6", top: "#d55cfa", bottom: "#9f16d6" },
+  coral: { rim: "#e0364f", top: "#ffa15c", bottom: "#ee3d63" },
+} as const;
+
+/**
+ * Live-text twin of the ArtButton artwork (glossy gradient, darker rim, white
+ * bilingual label, icon on the left) for buttons whose label isn't baked into an SVG.
+ * `width`/`height` give the same box aspect as the artwork so heights line up.
+ */
+export function GradientButton({
+  tone,
+  icon,
+  label,
+  jp,
+  width,
+  height,
+  className = "",
+  style,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  tone: keyof typeof GRADIENT_TONES;
+  icon: ReactNode;
+  label: string;
+  jp: string;
+  width: number;
+  height: number;
+}) {
+  const t = GRADIENT_TONES[tone];
+  const vars = { "--gb-rim": t.rim, "--gb-top": t.top, "--gb-bottom": t.bottom } as CSSProperties;
+  return (
+    <button
+      type="button"
+      className={`art-btn grad-btn ${className}`}
+      style={{ aspectRatio: `${width} / ${height}`, ...vars, ...style }}
+      {...props}
+    >
+      <span className="grad-btn-face">
+        <span className="grad-btn-icon" aria-hidden>
+          {icon}
+        </span>
+        <span className="grad-btn-text">
+          <span className="grad-btn-en">{label}</span>
+          <span lang="ja" translate="no" className="grad-btn-jp notranslate">
+            {jp}
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
+
 /** A stepped-corner frame: an edge layer with a fill layer inset by `border` px. */
 export function PixelFrame({
   edge = "bg-pp-blue",
@@ -106,10 +160,13 @@ export function PixelFrame({
 }
 
 /** Step label (pixel font) + display title, used at the top of each screen. */
-/** Short Japanese accent text (pixel font, marked lang="ja" for correct glyphs and screen readers). */
+/**
+ * Short Japanese accent text (pixel font, marked lang="ja" for correct glyphs and screen readers).
+ * translate="no" + .notranslate: it's branding, so browser translators must leave it alone.
+ */
 export function Jp({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <span lang="ja" className={`font-pixel tracking-normal ${className}`}>
+    <span lang="ja" translate="no" className={`notranslate font-pixel tracking-normal ${className}`}>
       {children}
     </span>
   );
