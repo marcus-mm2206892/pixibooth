@@ -343,10 +343,11 @@ body {
   }
 }
 
-/* Largest 1:3 strip that fits its .fit-box parent. */
+/* Largest frame that fits its .fit-box parent: a 1:3 strip unless --frame-w /
+   --frame-h say otherwise (FOUNDATION DAY is 3:4). */
 .fit-strip {
-  height: min(100cqh, 300cqw);
-  aspect-ratio: 1 / 3;
+  height: min(100cqh, 100cqw * var(--frame-h, 3) / var(--frame-w, 1));
+  aspect-ratio: var(--frame-w, 1) / var(--frame-h, 3);
 }
 
 /* Largest photo-slot (532:390) rectangle that fits its .fit-box parent. */

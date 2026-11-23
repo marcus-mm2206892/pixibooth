@@ -1,9 +1,10 @@
-// 2×6-inch photostrip geometry, the strip colors (official artwork) and the
-// single compositing function used for the on-screen previews and the PNG.
+// Photo frame geometry (2×6-inch strips and the 3×4-inch FOUNDATION DAY card),
+// the frame artwork and the single compositing function used for the on-screen
+// previews and the PNG.
 
-import type { FilterId, TemplateColor } from "./session";
+import type { FilterId, PhotoFilter, TemplateColor } from "./session";
 import type { PhotoSource } from "./photos";
-import { stripDate } from "./session";
+import { appliedFilter, stripDate, stripDatePadded } from "./session";
 import { applyFilter } from "./filters";
 import { canvasToBlob, coverCrop, get2d, makeCanvas, releaseCanvas } from "./canvas";
 
@@ -32,8 +33,9 @@ export const SLOT_ASPECT = STRIP.slotWidth / STRIP.slotHeight;
 export type Rect = { x: number; y: number; w: number; h: number };
 
 /**
- * Where things go on one strip artwork. Every coordinate is in the layout's own
- * 1:3 space (`width` × `height`); the renderer scales it to the output width.
+ * Where things go on one frame artwork. Every coordinate is in the layout's own
+ * space (`width` × `height`, which also sets the frame's aspect ratio); the
+ * renderer scales it uniformly to the output width.
  */
 export type StripLayout = {
   width: number;
@@ -45,14 +47,21 @@ export type StripLayout = {
   date: {
     /** Right edge of the text. */
     right: number;
-    /** Vertical anchor: the text's middle, or the bottom of its glyphs (to sit on printed text's line). */
+    /**
+     * Vertical anchor: the text's middle, the bottom of its glyphs (to sit on printed
+     * text's line), or the font baseline (to share a baseline grid with printed text).
+     */
     y: number;
-    anchor: "middle" | "ink-bottom";
+    anchor: "middle" | "ink-bottom" | "baseline";
     size: number;
     /** Text never starts left of this; the font shrinks to fit. */
     minLeft?: number;
+    /** CSS font-family stack. Omitted: DotGothic16 (the booth's pixel font). */
+    family?: string;
+    /** Date text. Omitted: `stripDate` (2026年1月5日). */
+    format?: (date: Date) => string;
   };
-  /** Downloaded PNG width in px (height is always 3×). */
+  /** Downloaded PNG width in px (height follows the layout's aspect ratio). */
   exportWidth: number;
 };
 
@@ -85,6 +94,59 @@ const POCKET_ID_LAYOUT: StripLayout = {
   exportWidth: 1044,
 };
 
+/**
+ * FOUNDATION DAY: 3×4 in, four photos in a 2×2 grid, 900×1200 px at 300 px/in.
+ *
+ * Artwork: assets/photo frames/foundation day.svg (the supplied file, unchanged).
+ * public/strips/foundation-day.png is that SVG rasterized at 900×1200 with only its
+ * four placeholder photos removed (same reason as the strips: canvas can't reliably
+ * draw image-embedding SVGs on iPad Safari).
+ *
+ * The SVG's viewBox is 204.75 × 278.25, 1.8% narrower than 3:4. Rather than stretch
+ * it, it is scaled uniformly to the full 1200 px height and centered, leaving ~8.5 px
+ * of the frame's own white at each side. Everything below is measured in viewBox
+ * units and mapped through that same transform (`fdX` / `fdY`).
+ */
+const FD_VIEWBOX = { w: 204.75, h: 278.250005 };
+const FD_SCALE = 1200 / FD_VIEWBOX.h;
+const FD_OFFSET_X = (900 - FD_VIEWBOX.w * FD_SCALE) / 2;
+const fdX = (u: number) => FD_OFFSET_X + u * FD_SCALE;
+const fdY = (u: number) => u * FD_SCALE;
+/** Photo openings = the SVG's clip paths around its placeholder photos (viewBox units). */
+const fdSlot = (x0: number, y0: number, x1: number, y1: number): Rect => ({
+  x: fdX(x0),
+  y: fdY(y0),
+  w: (x1 - x0) * FD_SCALE,
+  h: (y1 - y0) * FD_SCALE,
+});
+/** Print points → layout px (the layout is 300 px/in). */
+const pt = (points: number) => (points * 300) / 72;
+const FOUNDATION_DAY_LAYOUT: StripLayout = {
+  width: 900,
+  height: 1200,
+  // Shot order: top-left, top-right, bottom-left, bottom-right.
+  slots: [
+    fdSlot(8.953, 13, 100.664, 121),
+    fdSlot(104.375, 13, 196.082, 121),
+    fdSlot(8.953, 127, 100.664, 235.547),
+    fdSlot(104.375, 127, 196.082, 235.547),
+  ],
+  // Bottom-right info block: right-aligned with "NO. 0004 · PHOTO GOODS 4/4" (ends at
+  // x 195.89), one line above "© 2026 ピクシーポケット" on the block's own line pitch
+  // (baselines 258.40 / 261.76 / 265.11 → 255.05).
+  date: {
+    right: fdX(195.89),
+    y: fdY(255.05),
+    anchor: "baseline",
+    size: pt(3.7),
+    // Arial Unicode MS where installed; iPadOS doesn't ship it, so Arial (digits) +
+    // Hiragino Sans (年月日) stand in there. Never the booth's pixel font.
+    family: `"Arial Unicode MS", "ArialUnicodeMS", Arial, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif`,
+    format: stripDatePadded,
+  },
+  exportWidth: 900,
+};
+
 export const BRAND_NAME = "pixipocket";
 
 export type LogoVariant = "black" | "white";
@@ -97,10 +159,16 @@ export const LOGO_SRC: Record<LogoVariant, string> = {
 export type TemplateStyle = {
   id: TemplateColor;
   label: string;
+  /** Print size shown in the UI, e.g. "2×6". */
+  print: string;
   /** Main strip color (Cloudy Blue: its darkest stop); also the fill while the artwork loads. */
   hex: string;
   /** CSS background of the picker swatch. */
   swatch: string;
+  /** Pixel-font lines drawn on the swatch instead of the selection star, e.g. ["FND", "DAY"]. */
+  swatchText?: readonly [string, string];
+  /** Small tag over the swatch, e.g. "LIMITED" for event frames. */
+  badge?: string;
   /**
    * Official strip artwork, rasterized at 600×1800 from assets/color photo strips/<name> strip.svg
    * (canvas can't reliably draw those image-embedding SVGs on iPad Safari). The SVG's opaque strip
@@ -122,6 +190,7 @@ const strip = (id: TemplateColor, label: string, hex: string, dateInk: string, d
   label,
   hex,
   swatch,
+  print: "2×6",
   src: `/strips/${id}.png`,
   dateInk,
   dark,
@@ -162,6 +231,7 @@ export const TEMPLATES: Record<TemplateColor, TemplateStyle> = {
   pocketid: {
     id: "pocketid",
     label: "Pocket ID",
+    print: "2×6",
     hex: "#FFFFFF",
     swatch: POCKET_ID_SWATCH,
     src: "/strips/pocket-id.jpg",
@@ -170,9 +240,25 @@ export const TEMPLATES: Record<TemplateColor, TemplateStyle> = {
     outlined: true,
     layout: POCKET_ID_LAYOUT,
   },
+  "foundation-day": {
+    id: "foundation-day",
+    label: "FOUNDATION DAY",
+    print: "3×4",
+    hex: "#FFFFFF",
+    // Navy tile with "FND / DAY" in the pixel font (see StyleScreen).
+    swatch: "#263A5B",
+    swatchText: ["FND", "DAY"],
+    badge: "LIMITED",
+    src: "/strips/foundation-day.png",
+    dateInk: "#263A5B",
+    dark: true,
+    outlined: true,
+    layout: FOUNDATION_DAY_LAYOUT,
+  },
 };
 
 export const TEMPLATE_ORDER: TemplateColor[] = [
+  "foundation-day",
   "black",
   "white",
   "cherry",
@@ -186,11 +272,30 @@ export const TEMPLATE_ORDER: TemplateColor[] = [
   "pocketid",
 ];
 
+/** Output height for `width` (layouts aren't all 1:3). */
+export function frameHeight(template: TemplateColor, width: number): number {
+  const { layout } = TEMPLATES[template];
+  return Math.round((width * layout.height) / layout.width);
+}
+
+/** CSS custom properties that size a `.fit-strip` box to this frame's aspect ratio. */
+export function frameAspectVars(template: TemplateColor): Record<"--frame-w" | "--frame-h", number> {
+  const { layout } = TEMPLATES[template];
+  return { "--frame-w": layout.width, "--frame-h": layout.height };
+}
+
+/** Width / height of a template's first photo opening (photos are cover-cropped to it). */
+export function slotAspect(template: TemplateColor): number {
+  const slot = TEMPLATES[template].layout.slots[0];
+  return slot.w / slot.h;
+}
+
 export type RenderStripOptions = {
   photos: Array<PhotoSource | null>;
   template: TemplateColor;
-  filter: FilterId;
-  /** Output width; height is always 3× width. Defaults to the template's export width. */
+  /** The customer's pick (frames with a built-in filter use theirs instead), or an explicit filter. */
+  filter: FilterId | PhotoFilter;
+  /** Output width; height follows the layout. Defaults to the template's export width. */
   width?: number;
   date?: Date;
 };
@@ -230,20 +335,24 @@ async function ensureFont(spec: string, text?: string) {
   }
 }
 
-/** Renders the strip onto `canvas` (resized to width × 3·width) and returns it. */
+/** Renders the frame onto `canvas` (resized to the layout's aspect at `width`) and returns it. */
 export async function renderStrip(
   canvas: HTMLCanvasElement,
-  { photos, template, filter, width, date = new Date() }: RenderStripOptions,
+  { photos, template, filter: requested, width, date = new Date() }: RenderStripOptions,
 ): Promise<HTMLCanvasElement> {
   const style = TEMPLATES[template];
   const layout = style.layout;
+  // A frame's built-in filter replaces (never stacks with) the requested one.
+  const filter: PhotoFilter = requested === "foundation-day-blue" ? requested : appliedFilter(template, requested);
   width ??= layout.exportWidth;
   const s = width / layout.width;
-  const pixel = fontFamily("--font-dotgothic", "ui-monospace, monospace");
+  const dateFamily = layout.date.family ?? fontFamily("--font-dotgothic", "ui-monospace, monospace");
   const display = fontFamily("--font-barlow-condensed", "'Arial Narrow', sans-serif");
-  const dateFont = `400 ${Math.round(layout.date.size * s)}px ${pixel}`;
+  // Unrounded for custom-family dates: a 3.7 pt date is 15.4 px at 300 px/in, not 15.
+  const dateSize = layout.date.family ? layout.date.size * s : Math.round(layout.date.size * s);
+  const dateFont = `400 ${dateSize}px ${dateFamily}`;
   const fallbackFont = `800 ${Math.round(40 * s)}px ${display}`;
-  const dateText = stripDate(date);
+  const dateText = (layout.date.format ?? stripDate)(date);
   const [art] = await Promise.all([
     loadArtwork(template),
     ensureFont(dateFont, dateText),
@@ -251,7 +360,7 @@ export async function renderStrip(
   ]);
 
   canvas.width = Math.round(width);
-  canvas.height = Math.round(width * 3);
+  canvas.height = frameHeight(template, width);
   const ctx = get2d(canvas);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
@@ -315,10 +424,13 @@ export async function renderStrip(
   if (spec.minLeft !== undefined) {
     const room = right - spec.minLeft * s;
     const textWidth = ctx.measureText(dateText).width;
-    if (textWidth > room) ctx.font = `400 ${Math.floor(spec.size * s * (room / textWidth))}px ${pixel}`;
+    if (textWidth > room) ctx.font = `400 ${Math.floor(spec.size * s * (room / textWidth))}px ${dateFamily}`;
   }
   ctx.textAlign = "right";
-  if (spec.anchor === "ink-bottom") {
+  if (spec.anchor === "baseline") {
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(dateText, right, spec.y * s);
+  } else if (spec.anchor === "ink-bottom") {
     ctx.textBaseline = "alphabetic";
     const descent = ctx.measureText(dateText).actualBoundingBoxDescent || 0;
     ctx.fillText(dateText, right, spec.y * s - descent);
@@ -331,14 +443,18 @@ export async function renderStrip(
   return canvas;
 }
 
-/** The downloadable PNG: 600×1800 for the color strips, the artwork's native 1044×3132 for Pocket ID. */
+/**
+ * The downloadable PNG: 600×1800 for the color strips, the artwork's native 1044×3132
+ * for Pocket ID, 900×1200 (3×4 in at 300 px/in) for FOUNDATION DAY.
+ */
 export async function renderStripPng(options: Omit<RenderStripOptions, "width">): Promise<Blob> {
   const width = TEMPLATES[options.template].layout.exportWidth;
-  const canvas = makeCanvas(width, width * 3);
+  const height = frameHeight(options.template, width);
+  const canvas = makeCanvas(width, height);
   try {
     await renderStrip(canvas, { ...options, width });
-    if (canvas.width !== width || canvas.height !== width * 3) {
-      throw new Error(`Strip rendered at ${canvas.width}×${canvas.height}, expected ${width}×${width * 3}`);
+    if (canvas.width !== width || canvas.height !== height) {
+      throw new Error(`Strip rendered at ${canvas.width}×${canvas.height}, expected ${width}×${height}`);
     }
     return await canvasToBlob(canvas, "image/png");
   } finally {

@@ -3,7 +3,7 @@
 // `ctx.filter` is avoided on purpose: Safari support is unreliable, so a
 // CSS-filtered preview would not match the exported PNG.
 
-import type { FilterId } from "./session";
+import type { FilterId, PhotoFilter } from "./session";
 import { get2d, makeCanvas, mulberry32, releaseCanvas } from "./canvas";
 import { DREAM_FILM, stillRenderer } from "./dreamFilm";
 
@@ -18,13 +18,16 @@ export type LivePreview = {
 };
 
 export type FilterInfo = {
-  id: FilterId;
+  id: PhotoFilter;
   label: string;
   description: string;
   live: LivePreview;
 };
 
-export const FILTERS: Record<FilterId, FilterInfo> = {
+/** SVG filter (see FilterDefs) holding the FOUNDATION DAY duotone for the live camera. */
+export const FOUNDATION_DAY_SVG_ID = "pp-foundation-day-blue";
+
+export const FILTERS: Record<PhotoFilter, FilterInfo> = {
   none: {
     id: "none",
     label: "Auto",
@@ -47,8 +50,17 @@ export const FILTERS: Record<FilterId, FilterInfo> = {
     // The live preview runs the same WebGL pipeline as the saved photo.
     live: { css: "none", gpu: true },
   },
+  // Built into the FOUNDATION DAY frame only; never offered in the picker.
+  "foundation-day-blue": {
+    id: "foundation-day-blue",
+    label: "Foundation Day Blue",
+    description: "Built-in blue duotone",
+    // Same lookup table as the saved photo, as an SVG filter (exact, not an approximation).
+    live: { css: `url(#${FOUNDATION_DAY_SVG_ID})` },
+  },
 };
 
+/** The pickable filters, in picker order. Built-in frame filters are deliberately absent. */
 export const FILTER_ORDER: FilterId[] = ["none", "dreamfilm", "vintage"];
 
 type Rgb = [number, number, number];
@@ -60,10 +72,14 @@ export function applyFilter(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  filter: FilterId,
+  filter: PhotoFilter,
   seed = 1,
 ): void {
   if (filter === "none") return;
+  if (filter === "foundation-day-blue") {
+    foundationDayDuotone(ctx, width, height);
+    return;
+  }
   if (filter === "dreamfilm") {
     const renderer = stillRenderer();
     if (renderer) {
@@ -82,6 +98,66 @@ export function applyFilter(
   }
   vintageDuotone(ctx, width, height);
   vignette(ctx, width, height, "20, 16, 12", 0.42, 0.42);
+}
+
+// ── FOUNDATION DAY blue duotone ─────────────────────────────────────────────
+// Luminance → five-stop blue gradient map (dusty navy shadows to pale blue-gray
+// highlights). The end stops are already lifted/lowered, which gives the faded
+// look; a light S-curve keeps faces from going flat in the compressed range.
+
+/** Target palette from the FOUNDATION DAY brief, shadow → highlight. */
+export const FOUNDATION_DAY_STOPS: ReadonlyArray<{ position: number; color: string }> = [
+  { position: 0.0, color: "#263A5B" },
+  { position: 0.25, color: "#4D6485" },
+  { position: 0.5, color: "#8398B5" },
+  { position: 0.75, color: "#B2C2D6" },
+  { position: 1.0, color: "#E0E7F0" },
+];
+
+/** 0 = linear map; 1 = full smoothstep. Gentle, so detail in hair and clothing survives. */
+const FOUNDATION_DAY_CONTRAST = 0.18;
+
+/** 256-entry RGB lookup (index = Rec.601 luma), shared by the canvas pass and the live SVG filter. */
+export const FOUNDATION_DAY_LUT: Uint8ClampedArray = (() => {
+  const stops = FOUNDATION_DAY_STOPS.map(({ position, color }) => {
+    const hex = parseInt(color.slice(1), 16);
+    return { position, rgb: [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255] };
+  });
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const x = i / 255;
+    const t = x + (x * x * (3 - 2 * x) - x) * FOUNDATION_DAY_CONTRAST;
+    let k = 1;
+    while (k < stops.length - 1 && t > stops[k].position) k++;
+    const a = stops[k - 1];
+    const b = stops[k];
+    const f = Math.min(1, Math.max(0, (t - a.position) / (b.position - a.position)));
+    for (let c = 0; c < 3; c++) lut[i * 3 + c] = Math.round(a.rgb[c] + (b.rgb[c] - a.rgb[c]) * f);
+  }
+  return lut;
+})();
+
+function foundationDayDuotone(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const image = ctx.getImageData(0, 0, w, h);
+  const d = image.data;
+  const lut = FOUNDATION_DAY_LUT;
+  for (let i = 0; i < d.length; i += 4) {
+    const j = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) * 3;
+    d[i] = lut[j];
+    d[i + 1] = lut[j + 1];
+    d[i + 2] = lut[j + 2];
+  }
+  ctx.putImageData(image, 0, 0);
+}
+
+/** `tableValues` for feFuncR/G/B: the LUT sampled at 33 points (piecewise-linear, like the canvas map). */
+export function foundationDayTables(samples = 33): [string, string, string] {
+  const out: [number[], number[], number[]] = [[], [], []];
+  for (let s = 0; s < samples; s++) {
+    const j = Math.round((s / (samples - 1)) * 255) * 3;
+    for (let c = 0; c < 3; c++) out[c].push(FOUNDATION_DAY_LUT[j + c] / 255);
+  }
+  return out.map((v) => v.map((n) => n.toFixed(4)).join(" ")) as [string, string, string];
 }
 
 // ── Vintage Film: a port of the team's Canva recipe ─────────────────────────

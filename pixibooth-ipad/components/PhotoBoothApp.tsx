@@ -9,6 +9,7 @@ import { CameraBooth } from "./CameraBooth";
 import { KeepScreen } from "./KeepScreen";
 import { ThanksScreen } from "./ThanksScreen";
 import { ShutterFlash } from "./ShutterFlash";
+import { FilterDefs } from "./FilterDefs";
 
 export default function PhotoBoothApp() {
   const [engine] = useState(() => new BoothEngine(new BrowserCameraAdapter()));
@@ -43,6 +44,7 @@ export default function PhotoBoothApp() {
 
   return (
     <>
+      <FilterDefs />
       {screen}
       <ShutterFlash peak={state.flashPeak} />
     </>

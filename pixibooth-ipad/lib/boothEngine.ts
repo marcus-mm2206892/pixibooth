@@ -6,6 +6,7 @@ import type { CameraAdapter, CameraErrorKind, FacingMode } from "./camera";
 import { toCameraError } from "./camera";
 import type { BoothSettings, FilterId, PhotoSession, TemplateColor } from "./session";
 import {
+  BUILT_IN_FILTER,
   DEFAULT_SETTINGS,
   MAX_RETAKES,
   TIMING,
@@ -191,8 +192,14 @@ export class BoothEngine {
     this.patchSession({ template });
   }
 
+  /**
+   * Ignored while the frame has a built-in filter (FOUNDATION DAY): the picker is
+   * locked, and `session.filter` keeps the customer's earlier pick for when they
+   * switch back to another frame.
+   */
   setFilter(filter: FilterId) {
     if (isCapturePhase(this.state.phase)) return;
+    if (BUILT_IN_FILTER[this.state.session.template]) return;
     this.patchSession({ filter });
   }
 

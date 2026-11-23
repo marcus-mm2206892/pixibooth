@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { CapturedPhoto, FilterId } from "@/lib/session";
+import type { CapturedPhoto, PhotoFilter } from "@/lib/session";
 import { SHOT_COUNT } from "@/lib/session";
 import { popIn } from "@/lib/motion";
 import { FilteredPhoto } from "./FilteredPhoto";
@@ -15,7 +15,7 @@ function SlotThumb({
 }: {
   photo: CapturedPhoto | null;
   index: number;
-  filter: FilterId;
+  filter: PhotoFilter;
   active: boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -63,7 +63,7 @@ export function CaptureProgress({
   className = "",
 }: {
   photos: Array<CapturedPhoto | null>;
-  filter: FilterId;
+  filter: PhotoFilter;
   activeSlot: number | null;
   className?: string;
 }) {

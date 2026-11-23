@@ -1,6 +1,6 @@
 // Captured-photo lifecycle: creation, decoding (cached) and cleanup.
 
-import type { CapturedPhoto, FilterId } from "./session";
+import type { CapturedPhoto, PhotoFilter } from "./session";
 import { randomId } from "./session";
 import { applyFilter } from "./filters";
 import { canvasToBlob, coverCrop, get2d, hashString, makeCanvas, releaseCanvas } from "./canvas";
@@ -67,7 +67,7 @@ async function decodeBlob(photo: CapturedPhoto): Promise<CanvasImageSource> {
 export function drawFilteredPhoto(
   canvas: HTMLCanvasElement,
   source: PhotoSource,
-  filter: FilterId,
+  filter: PhotoFilter,
 ): void {
   const ctx = get2d(canvas);
   const { width: w, height: h } = canvas;
@@ -84,7 +84,7 @@ export function drawFilteredPhoto(
  * Unfiltered photos are the original capture bytes; filtered ones are
  * re-encoded once at high quality to keep generation loss minimal.
  */
-export async function renderPhotoJpeg(photo: CapturedPhoto, filter: FilterId): Promise<Blob> {
+export async function renderPhotoJpeg(photo: CapturedPhoto, filter: PhotoFilter): Promise<Blob> {
   if (filter === "none") return photo.blob;
   const source = await decodePhoto(photo);
   const canvas = makeCanvas(photo.width, photo.height);

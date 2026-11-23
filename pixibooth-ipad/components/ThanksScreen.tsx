@@ -50,7 +50,8 @@ export function ThanksScreen({ onDone }: { onDone: () => void }) {
       left: 4 + rand() * 92,
       top: 6 + rand() * 88,
       size: 12 + Math.round(rand() * 3) * 6,
-    }));
+      // #2 lands on the "N" of THANK YOU; drop it (the others keep their spots).
+    })).filter((_, i) => i !== 2);
   }, []);
 
   const leave = useCallback(() => {

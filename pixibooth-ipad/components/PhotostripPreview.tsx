@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { CapturedPhoto, FilterId, TemplateColor } from "@/lib/session";
+import type { CapturedPhoto, PhotoFilter, TemplateColor } from "@/lib/session";
 import { decodePhoto } from "@/lib/photos";
-import { renderStrip, STRIP, TEMPLATES } from "@/lib/photostrip";
+import { frameHeight, renderStrip, STRIP, TEMPLATES } from "@/lib/photostrip";
 import { getSamplePhotos } from "@/lib/sampleScene";
 import { get2d, makeCanvas, releaseCanvas } from "@/lib/canvas";
 
@@ -22,12 +22,14 @@ export function PhotostripPreview({
 }: {
   photos: Array<CapturedPhoto | null> | "sample";
   template: TemplateColor;
-  filter: FilterId;
+  /** The customer's pick; frames with a built-in filter use theirs instead (see renderStrip). */
+  filter: PhotoFilter;
   date?: number;
   width?: number;
   className?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const height = frameHeight(template, width);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +39,7 @@ export function PhotostripPreview({
           ? getSamplePhotos()
           : await Promise.all(photos.map((p) => (p ? decodePhoto(p) : null)));
       if (cancelled) return;
-      const scratch = makeCanvas(width, width * 3);
+      const scratch = makeCanvas(width, frameHeight(template, width));
       await renderStrip(scratch, { photos: sources, template, filter, width, date: date ? new Date(date) : undefined });
       const target = canvasRef.current;
       if (!cancelled && target) {
@@ -56,9 +58,9 @@ export function PhotostripPreview({
     <canvas
       ref={canvasRef}
       width={width}
-      height={width * 3}
+      height={height}
       role="img"
-      aria-label={`${TEMPLATES[template].label} photostrip preview`}
+      aria-label={`${TEMPLATES[template].label} ${TEMPLATES[template].print} print preview`}
       className={`block h-full w-full ${TEMPLATES[template].outlined ? "ring-1 ring-pp-blue-line" : ""} ${className}`}
       style={{ background: TEMPLATES[template].hex }}
     />

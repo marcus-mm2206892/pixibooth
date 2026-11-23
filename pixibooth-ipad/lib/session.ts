@@ -13,9 +13,28 @@ export type TemplateColor =
   | "matcha"
   | "butter"
   | "lavender"
-  | "pocketid";
+  | "pocketid"
+  | "foundation-day";
 
+/** Filters customers can pick on the Style screen. */
 export type FilterId = "none" | "vintage" | "dreamfilm";
+
+/** Every filter a photo can be rendered with: the pickable ones plus frame-only built-ins. */
+export type PhotoFilter = FilterId | "foundation-day-blue";
+
+/**
+ * Frames that come with their own mandatory filter. While one is selected the
+ * picker is locked and this filter is used instead of `session.filter`, which
+ * keeps the customer's own pick so it comes back when they switch frames.
+ */
+export const BUILT_IN_FILTER: Partial<Record<TemplateColor, PhotoFilter>> = {
+  "foundation-day": "foundation-day-blue",
+};
+
+/** The filter actually rendered for this frame: its built-in one, else the customer's pick. Never both. */
+export function appliedFilter(template: TemplateColor, filter: FilterId): PhotoFilter {
+  return BUILT_IN_FILTER[template] ?? filter;
+}
 
 export type CapturedPhoto = {
   id: string;
@@ -32,6 +51,7 @@ export type PhotoSession = {
   /** Session start; drives the date printed on the strip. */
   createdAt: number;
   template: TemplateColor;
+  /** The customer's pick; see `appliedFilter` for what is rendered. */
   filter: FilterId;
   /** Always length SHOT_COUNT; null = not captured yet. */
   photos: Array<CapturedPhoto | null>;
@@ -127,6 +147,11 @@ export function stripDate(date: Date): string {
   return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
 }
 
+/** Zero-padded Japanese date, e.g. 2026年01月05日 (device-local time). Used by FOUNDATION DAY. */
+export function stripDatePadded(date: Date): string {
+  return `${date.getFullYear()}年${pad(date.getMonth() + 1)}月${pad(date.getDate())}日`;
+}
+
 /** Sequential per-day session label (S001, S002…) kept in localStorage; random fallback. */
 export function createSessionId(now = new Date()): string {
   const day = dayStamp(now);
@@ -146,13 +171,18 @@ export function ticketNumber(session: PhotoSession): string {
   return session.id ? session.id.split("-").pop()! : "S000";
 }
 
+function filterSuffix(session: PhotoSession): string {
+  const filter = appliedFilter(session.template, session.filter);
+  return filter === "none" ? "" : `-${filter}`;
+}
+
 export function stripFilename(session: PhotoSession): string {
-  const filter = session.filter === "none" ? "" : `-${session.filter}`;
+  const filter = filterSuffix(session);
   return `pixipocket-${session.id}-strip-${session.template}${filter}.png`;
 }
 
 export function photoFilename(session: PhotoSession, index: number): string {
-  const filter = session.filter === "none" ? "" : `-${session.filter}`;
+  const filter = filterSuffix(session);
   return `pixipocket-${session.id}-photo-${index + 1}${filter}.jpg`;
 }
 

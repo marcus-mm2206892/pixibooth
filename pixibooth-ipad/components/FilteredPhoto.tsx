@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { CapturedPhoto, FilterId } from "@/lib/session";
+import type { CapturedPhoto, PhotoFilter } from "@/lib/session";
 import { decodePhoto, drawFilteredPhoto } from "@/lib/photos";
 import { get2d, makeCanvas, releaseCanvas } from "@/lib/canvas";
 import { SLOT_ASPECT } from "@/lib/photostrip";
@@ -15,7 +15,7 @@ export function FilteredPhoto({
   alt,
 }: {
   photo: CapturedPhoto;
-  filter: FilterId;
+  filter: PhotoFilter;
   width?: number;
   className?: string;
   alt: string;

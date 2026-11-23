@@ -7,7 +7,8 @@ import { isCapturePhase } from "@/lib/boothEngine";
 import { ERROR_COPY } from "@/lib/cameraErrors";
 import { FILTERS } from "@/lib/filters";
 import { FALLBACK_POSE } from "@/lib/poses";
-import { SHOT_COUNT, TIMING, nextEmptySlot } from "@/lib/session";
+import { SHOT_COUNT, TIMING, appliedFilter, nextEmptySlot } from "@/lib/session";
+import { SLOT_ASPECT, slotAspect } from "@/lib/photostrip";
 import { popIn } from "@/lib/motion";
 import { CaptureProgress } from "./CaptureProgress";
 import { DreamFilmLive } from "./DreamFilmLive";
@@ -28,7 +29,10 @@ const START_BLINKS: readonly BlinkWindow[] = [
 
 export function CameraBooth({ state, engine }: { state: BoothState; engine: BoothEngine }) {
   const { phase, stream, session, activeSlot, countdown, mode, retakeSlot, mirror } = state;
-  const { photos, filter, poses } = session;
+  const { photos, poses } = session;
+  const filter = appliedFilter(session.template, session.filter);
+  /** Share of the captured width that the frame's openings keep (1 for the strips; ~0.62 for FOUNDATION DAY's portrait cuts). */
+  const keptWidth = Math.min(1, slotAspect(session.template) / SLOT_ASPECT);
   const videoRef = useRef<HTMLVideoElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const badgeRef = useRef<HTMLSpanElement>(null);
@@ -160,7 +164,8 @@ export function CameraBooth({ state, engine }: { state: BoothState; engine: Boot
                 />
               )}
 
-              {videoReady && phase !== "error" && <FramingGuide />}
+              {videoReady && phase !== "error" && keptWidth < 1 && <CropGuide kept={keptWidth} />}
+              {videoReady && phase !== "error" && <FramingGuide inset={keptWidth < 1 ? (1 - keptWidth) / 2 : 0} />}
 
               {/* Pose tip over the bottom of the live view, where the group is looking.
                   Semi-transparent so faces stay visible; it is never part of the saved photo. */}
@@ -406,10 +411,28 @@ function AutoStartRing({ ms, runKey }: { ms: number; runKey: string | null }) {
 }
 
 /** Pixel crop-guide corners at the safe area. */
-function FramingGuide() {
-  const corner = "absolute size-9 border-white/80 phone:size-6";
+/**
+ * Frames whose photo openings are narrower than the capture (FOUNDATION DAY) keep
+ * only the centre of each photo; the sides that won't be printed are dimmed.
+ * Display only: the capture itself is unchanged.
+ */
+function CropGuide({ kept }: { kept: number }) {
+  const side = `${((1 - kept) / 2) * 100}%`;
+  const band = "pointer-events-none absolute inset-y-0 bg-pp-navy/55";
   return (
-    <div className="pointer-events-none absolute inset-[6%]" aria-hidden>
+    <div aria-hidden>
+      <span className={`${band} left-0`} style={{ width: side }} />
+      <span className={`${band} right-0`} style={{ width: side }} />
+    </div>
+  );
+}
+
+/** Corner marks; `inset` (fraction of the width) pulls them in to the cropped area. */
+function FramingGuide({ inset = 0 }: { inset?: number }) {
+  const corner = "absolute size-9 border-white/80 phone:size-6";
+  const x = `${(inset + 0.06 * (1 - 2 * inset)) * 100}%`;
+  return (
+    <div className="pointer-events-none absolute inset-y-[6%]" style={{ left: x, right: x }} aria-hidden>
       <span className={`${corner} left-0 top-0 border-l-4 border-t-4`} />
       <span className={`${corner} right-0 top-0 border-r-4 border-t-4`} />
       <span className={`${corner} bottom-0 left-0 border-b-4 border-l-4`} />

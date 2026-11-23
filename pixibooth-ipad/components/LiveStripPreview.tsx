@@ -1,10 +1,10 @@
 "use client";
 
 import { memo, useEffect, useRef } from "react";
-import type { FilterId, TemplateColor } from "@/lib/session";
+import type { PhotoFilter, TemplateColor } from "@/lib/session";
 import { FILTERS } from "@/lib/filters";
 import { stillRenderer } from "@/lib/dreamFilm";
-import { TEMPLATES, renderStrip } from "@/lib/photostrip";
+import { TEMPLATES, frameHeight, renderStrip } from "@/lib/photostrip";
 import { getSamplePhotos } from "@/lib/sampleScene";
 import { coverCrop, get2d, makeCanvas, releaseCanvas } from "@/lib/canvas";
 
@@ -42,7 +42,8 @@ export const LiveStripPreview = memo(function LiveStripPreview({
   /** Camera is live: show it in the slots; otherwise the sample strip. */
   live: boolean;
   template: TemplateColor;
-  filter: FilterId;
+  /** The filter actually applied (a frame's built-in one, if it has it). */
+  filter: PhotoFilter;
   mirror: boolean;
   date?: number;
 }) {
@@ -54,6 +55,7 @@ export const LiveStripPreview = memo(function LiveStripPreview({
   const style = TEMPLATES[template];
   const { layout } = style;
   const liveLook = FILTERS[filter].live;
+  const baseHeight = frameHeight(template, BASE_WIDTH);
 
   useEffect(() => {
     opts.current = { filter, mirror };
@@ -67,10 +69,10 @@ export const LiveStripPreview = memo(function LiveStripPreview({
   }, [stream]);
 
   // Static layer: only re-rendered when what it shows changes.
-  const staticFilter: FilterId = live ? "none" : filter;
+  const staticFilter: PhotoFilter = live ? "none" : filter;
   useEffect(() => {
     let cancelled = false;
-    const scratch = makeCanvas(BASE_WIDTH, BASE_WIDTH * 3);
+    const scratch = makeCanvas(BASE_WIDTH, frameHeight(template, BASE_WIDTH));
     renderStrip(scratch, {
       photos: live ? EMPTY_SLOTS : getSamplePhotos(),
       template,
@@ -153,7 +155,7 @@ export const LiveStripPreview = memo(function LiveStripPreview({
       className={`relative h-full w-full ${style.outlined ? "ring-1 ring-pp-blue-line" : ""}`}
       style={{ background: style.hex }}
     >
-      <canvas ref={baseRef} width={BASE_WIDTH} height={BASE_WIDTH * 3} className="block h-full w-full" />
+      <canvas ref={baseRef} width={BASE_WIDTH} height={baseHeight} className="block h-full w-full" />
       {/* Hidden until the first camera frame is drawn, so empty slots never cover the artwork. */}
       <div ref={slotsRef} className="invisible absolute inset-0" aria-hidden>
         {layout.slots.map((slot, i) => (

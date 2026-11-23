@@ -24,10 +24,13 @@ const SWIPE_VELOCITY = 0.45;
 export function PhotoViewer({
   items,
   kind,
+  print = "2×6",
   onClose,
 }: {
   items: ViewerItem[];
   kind: "photos" | "strip";
+  /** Print size for the strip header, e.g. "3×4" for FOUNDATION DAY. */
+  print?: string;
   onClose: () => void;
 }) {
   const [index, setIndex] = useState(0);
@@ -130,7 +133,7 @@ export function PhotoViewer({
         <header className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <p className="font-label text-sm font-bold tracking-[0.18em] text-pp-blue-light phone:text-[0.65rem]">
-              {isStrip ? "2×6 PRINT" : `PHOTO ${pad2(index + 1)} / ${pad2(count)}`} <Jp className="ml-2 opacity-80">{jpTitle}</Jp>
+              {isStrip ? `${print} PRINT` : `PHOTO ${pad2(index + 1)} / ${pad2(count)}`} <Jp className="ml-2 opacity-80">{jpTitle}</Jp>
             </p>
             <h2 className="mt-0.5 flex items-center gap-2 font-pixel text-3xl uppercase leading-tight phone:text-xl">
               {title}

@@ -5,9 +5,9 @@ import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowLeft, Camera, ChevronLeft, ChevronRight, Reload } from "pixelarticons/react";
 import type { BoothEngine, BoothState } from "@/lib/boothEngine";
 import type { FilterId } from "@/lib/session";
-import { TIMING, ticketNumber } from "@/lib/session";
+import { BUILT_IN_FILTER, TIMING, appliedFilter, ticketNumber } from "@/lib/session";
 import { FILTERS, FILTER_ORDER } from "@/lib/filters";
-import { TEMPLATES, TEMPLATE_ORDER } from "@/lib/photostrip";
+import { TEMPLATES, TEMPLATE_ORDER, frameAspectVars } from "@/lib/photostrip";
 import { ERROR_COPY } from "@/lib/cameraErrors";
 import { bump } from "@/lib/motion";
 import { KioskShell } from "./KioskShell";
@@ -59,6 +59,10 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
   const root = useEnterAnimation<HTMLDivElement>();
   const { session, stream, cameraStatus, error, mirror } = state;
   const { template, filter } = session;
+  // FOUNDATION DAY: its own filter, picker locked. `filter` still holds the
+  // customer's pick, restored as soon as they choose another frame.
+  const filterLocked = !!BUILT_IN_FILTER[template];
+  const shownFilter = appliedFilter(template, filter);
   const cards = useRef<Record<string, HTMLElement | null>>({});
   const colorRow = useRef<HTMLDivElement>(null);
   const filterRow = useRef<HTMLDivElement>(null);
@@ -95,12 +99,12 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
           <div className="fit-box relative flex flex-1 items-center justify-center">
             {/* The strip is an opaque rectangle, so a box-shadow looks identical to the old
                 drop-shadow filter but isn't re-rasterized on every live camera frame. */}
-            <div className="fit-strip shadow-[5px_6px_0_rgba(10,45,105,0.3)]">
+            <div className="fit-strip shadow-[5px_6px_0_rgba(10,45,105,0.3)]" style={frameAspectVars(template) as React.CSSProperties}>
               <LiveStripPreview
                 stream={stream}
                 live={liveNow}
                 template={template}
-                filter={filter}
+                filter={shownFilter}
                 mirror={mirror}
                 date={session.createdAt || undefined}
               />
@@ -142,6 +146,11 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
           <h2 className="flex flex-wrap items-baseline gap-x-3 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue phone:gap-x-2 phone:text-xs">
             Strip color <Jp className="opacity-80">色</Jp>
             <span className="font-pixel text-lg normal-case tracking-normal text-pp-navy phone:text-sm">{TEMPLATES[template].label}</span>
+            {TEMPLATES[template].badge && (
+              <span className="bg-pp-red px-1.5 font-pixel text-sm normal-case tracking-normal text-white phone:text-[0.6rem]">
+                Limited-time event <Jp className="ml-1">期間限定</Jp>
+              </span>
+            )}
           </h2>
           <div className="relative">
           <div ref={colorRow} role="radiogroup" aria-label="Strip color" className="grid grid-cols-4 justify-items-start gap-4 phone:grid-cols-5 phone:gap-2 phone-portrait:flex phone-portrait:snap-x phone-portrait:overflow-x-auto phone-portrait:overscroll-x-contain phone-portrait:scroll-px-1 phone-portrait:p-1 wide:flex wide:items-start wide:gap-[clamp(10px,1.5vw,20px)] [@media(max-height:500px)]:flex [@media(max-height:500px)]:flex-wrap">
@@ -157,7 +166,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-label={style.label}
+                  aria-label={style.badge ? `${style.label} (limited-time event)` : style.label}
                   title={style.label}
                   onClick={() => {
                     engine.setTemplate(t);
@@ -168,7 +177,22 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                   }`}
                   style={{ background: style.swatch }}
                 >
-                  {selected && <PixelStar size={14} color={style.dark ? "#FFFFFF" : "var(--pp-navy)"} />}
+                  {style.swatchText ? (
+                    <span aria-hidden className="flex flex-col items-center pt-1.5 font-pixel text-[1.05rem] leading-[1.05] text-white phone:pt-1 phone:text-[0.55rem] phone-portrait:text-[0.7rem]">
+                      <span>{style.swatchText[0]}</span>
+                      <span>{style.swatchText[1]}</span>
+                    </span>
+                  ) : (
+                    selected && <PixelStar size={14} color={style.dark ? "#FFFFFF" : "var(--pp-navy)"} />
+                  )}
+                  {style.badge && (
+                    <span
+                      aria-hidden
+                      className="absolute -top-1 left-1/2 -translate-x-1/2 bg-pp-red px-1 font-pixel text-[0.55rem] leading-tight tracking-wider text-white phone:text-[0.4rem]"
+                    >
+                      {style.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -181,13 +205,27 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
         <section data-enter style={{ gridArea: "filters" }} className="flex min-h-0 flex-col gap-3 phone:gap-1.5">
           {/* Wide: label + cards centred in the space left between the colors and the button. */}
           <div className="fit-box flex flex-1 flex-col items-start justify-start gap-3 wide:justify-center narrow:overflow-y-auto narrow:[container-type:normal] phone:gap-1.5">
-            <h2 className="font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue phone:text-xs">
-              Filter <Jp className="ml-1 opacity-80">フィルター</Jp>
+            <h2 className="flex flex-wrap items-baseline gap-x-3 font-label text-base font-bold uppercase tracking-[0.18em] text-pp-blue phone:gap-x-2 phone:text-xs">
+              <span>
+                Filter <Jp className="ml-1 opacity-80">フィルター</Jp>
+              </span>
+              {filterLocked && (
+                <span role="status" className="font-pixel text-base normal-case tracking-normal text-pp-navy phone:text-[0.7rem]">
+                  This frame comes with its own filter ♡
+                </span>
+              )}
             </h2>
             <div className="relative w-full">
-            <div ref={filterRow} role="radiogroup" aria-label="Photo filter" className="filter-grid" style={{ "--cols": FILTER_ORDER.length } as React.CSSProperties}>
+            <div
+              ref={filterRow}
+              role="radiogroup"
+              aria-label="Photo filter"
+              aria-disabled={filterLocked || undefined}
+              className={`filter-grid ${filterLocked ? "pointer-events-none opacity-45 grayscale" : ""}`}
+              style={{ "--cols": FILTER_ORDER.length } as React.CSSProperties}
+            >
               {FILTER_ORDER.map((f) => {
-                const selected = f === filter;
+                const selected = !filterLocked && f === filter;
                 const info = FILTERS[f];
                 return (
                   <button
@@ -199,11 +237,14 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
                     role="radio"
                     aria-checked={selected}
                     aria-label={info.label}
+                    disabled={filterLocked}
+                    tabIndex={filterLocked ? -1 : undefined}
                     onClick={() => {
+                      if (filterLocked) return;
                       engine.setFilter(f);
                       bump(cards.current[f]);
                     }}
-                    className="relative text-left phone:min-h-0 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
+                    className="relative text-left disabled:cursor-not-allowed phone:min-h-0 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-pp-navy"
                   >
                     <PixelFrame
                       edge={selected ? "bg-pp-navy animate-edge-blink" : "bg-pp-blue-line"}
@@ -242,7 +283,7 @@ export function StyleScreen({ state, engine }: { state: BoothState; engine: Boot
         <div data-enter style={{ gridArea: "cta" }} className="flex flex-wrap items-center justify-between gap-4 phone:flex-nowrap phone:gap-3">
           {liveNow ? (
             <p className="font-pixel text-lg text-pp-navy narrow:hidden phone:text-sm">
-              {TEMPLATES[template].label.toUpperCase()} · {FILTERS[filter].label.toUpperCase()}
+              {TEMPLATES[template].label.toUpperCase()} · {FILTERS[shownFilter].label.toUpperCase()}
             </p>
           ) : (
             <p className="max-w-md text-base text-pp-ink/80 narrow:w-full narrow:text-center phone:w-auto phone:flex-1 phone:text-left phone:text-xs" role="status">

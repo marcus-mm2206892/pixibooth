@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { Check, Undo } from "pixelarticons/react";
 import type { PhotoSession } from "@/lib/session";
-import { allPhotosFilename, MAX_RETAKES, stripFilename, ticketNumber } from "@/lib/session";
+import { allPhotosFilename, appliedFilter, MAX_RETAKES, stripFilename, ticketNumber } from "@/lib/session";
 import { canShareFiles, downloadAll, downloadBlob, isTouchDevice, saveFiles, shareFiles, type NamedBlob } from "@/lib/downloads";
 import { decodePhoto, renderPhotoJpeg } from "@/lib/photos";
-import { renderStripPng } from "@/lib/photostrip";
+import { TEMPLATES, frameAspectVars, renderStripPng } from "@/lib/photostrip";
 import { FilteredPhoto } from "./FilteredPhoto";
 import { KioskShell } from "./KioskShell";
 import { MockQr } from "./MockQr";
@@ -39,6 +39,8 @@ export function KeepScreen({
   const root = useEnterAnimation<HTMLDivElement>();
   const [selected, setSelected] = useState<number | null>(null);
   const retakesLeft = Math.max(0, MAX_RETAKES - session.retakesUsed);
+  const filter = appliedFilter(session.template, session.filter);
+  const print = TEMPLATES[session.template].print;
   const strip = useStripPng(session);
   const allPhotos = useAllPhotos(session);
   const [viewer, setViewer] = useState<"strip" | null>(null);
@@ -131,17 +133,17 @@ export function KeepScreen({
             <div className="flex min-h-0 flex-col items-center gap-2">
               <div className="fit-box relative flex w-full flex-1 items-center justify-center phone:h-[min(56vh,360px)] phone:flex-none">
                 <StarCelebration />
-                <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.35)]">
+                <div className="fit-strip drop-shadow-[5px_6px_0_rgba(10,45,105,0.35)]" style={frameAspectVars(session.template) as React.CSSProperties}>
                   <PhotostripPreview
                     photos={session.photos}
                     template={session.template}
-                    filter={session.filter}
+                    filter={filter}
                     date={session.createdAt}
                   />
                 </div>
               </div>
               <p className="font-label text-sm font-bold tracking-[0.18em] text-pp-navy phone:text-[0.65rem] phone:tracking-widest">
-                NO. {ticketNumber(session)} · 2×6 PRINT
+                NO. {ticketNumber(session)} · {print} PRINT
               </p>
             </div>
 
@@ -175,7 +177,7 @@ export function KeepScreen({
                         }`}
                       >
                         <span className="block h-full w-full overflow-hidden">
-                          <FilteredPhoto photo={photo} filter={session.filter} width={360} alt="" />
+                          <FilteredPhoto photo={photo} filter={filter} width={360} alt="" />
                         </span>
                         {chosen && (
                           <span aria-hidden className="animate-arcade pointer-events-none absolute -inset-2 border-4 border-pp-red" />
@@ -311,7 +313,7 @@ export function KeepScreen({
         </section>
       </div>
 
-      {viewer === "strip" && strip && <PhotoViewer kind="strip" items={[strip]} onClose={() => setViewer(null)} />}
+      {viewer === "strip" && strip && <PhotoViewer kind="strip" print={print} items={[strip]} onClose={() => setViewer(null)} />}
       {printRequest && (
         <PrintRequestDialog
           state={printRequest}
@@ -357,7 +359,8 @@ function useStripPng(session: PhotoSession): ViewerItem | null {
  */
 function useAllPhotos(session: PhotoSession): NamedBlob[] | null {
   const [files, setFiles] = useState<{ photos: PhotoSession["photos"]; items: NamedBlob[] } | null>(null);
-  const { photos, filter } = session;
+  const { photos } = session;
+  const filter = appliedFilter(session.template, session.filter);
 
   useEffect(() => {
     let cancelled = false;
