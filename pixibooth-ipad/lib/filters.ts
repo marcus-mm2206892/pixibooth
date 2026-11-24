@@ -101,21 +101,22 @@ export function applyFilter(
 }
 
 // ── FOUNDATION DAY blue duotone ─────────────────────────────────────────────
-// Luminance → five-stop blue gradient map (dusty navy shadows to pale blue-gray
-// highlights). The end stops are already lifted/lowered, which gives the faded
-// look; a light S-curve keeps faces from going flat in the compressed range.
+// Luminance → six-stop vintage navy-and-silver gradient map: rich navy shadows,
+// muted blue-gray midtones, near-white silver highlights. The S-curve adds the
+// punch of the reference print (deeper shadows, brighter, less blue highlights).
 
-/** Target palette from the FOUNDATION DAY brief, shadow → highlight. */
+/** Target palette (navy-and-silver reference), shadow → brightest highlight. */
 export const FOUNDATION_DAY_STOPS: ReadonlyArray<{ position: number; color: string }> = [
-  { position: 0.0, color: "#263A5B" },
-  { position: 0.25, color: "#4D6485" },
-  { position: 0.5, color: "#8398B5" },
-  { position: 0.75, color: "#B2C2D6" },
-  { position: 1.0, color: "#E0E7F0" },
+  { position: 0.0, color: "#3D4C6D" },
+  { position: 0.2, color: "#52607D" },
+  { position: 0.45, color: "#8D95A9" },
+  { position: 0.65, color: "#B0B6C3" },
+  { position: 0.85, color: "#DEE1E7" },
+  { position: 1.0, color: "#EAEBEF" },
 ];
 
-/** 0 = linear map; 1 = full smoothstep. Gentle, so detail in hair and clothing survives. */
-const FOUNDATION_DAY_CONTRAST = 0.18;
+/** 0 = linear map; 1 = full smoothstep. Firm enough to keep faces from looking washed out. */
+const FOUNDATION_DAY_CONTRAST = 0.45;
 
 /** 256-entry RGB lookup (index = Rec.601 luma), shared by the canvas pass and the live SVG filter. */
 export const FOUNDATION_DAY_LUT: Uint8ClampedArray = (() => {
